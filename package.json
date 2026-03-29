@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n be,fe -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && python dev_server.py",
+    "dev:frontend": "cd frontend && npm run dev",
+    "test": "cd backend && python -m pytest tests/ -v",
+    "build": "sam build --profile graveyard-master",
+    "build:frontend": "cd frontend && npm run build",
+    "deploy": "sam deploy --profile graveyard-master",
+    "deploy:frontend": "npm run build:frontend && aws s3 sync frontend/dist s3://aalumvej26-frontend-prod --delete --profile graveyard-master",
+    "deploy:all": "npm run deploy && npm run deploy:frontend",
+    "package": "sam package --profile graveyard-master --output-template-file packaged.yaml"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
