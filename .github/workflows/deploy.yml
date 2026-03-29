@@ -45,9 +45,8 @@ jobs:
         run: |
           HASH=$(sha256sum agent-runtime.zip | cut -c1-16)
           KEY="agent-runtime/${HASH}.zip"
-          BUCKET=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucket`].OutputValue' --output text 2>/dev/null || echo "")
-          SAM_BUCKET=$(aws s3api list-buckets --query 'Buckets[?starts_with(Name,`aws-sam-cli-managed`)].Name' --output text | head -1)
-          aws s3 cp agent-runtime.zip s3://${SAM_BUCKET}/${KEY}
+          SAM_BUCKET=$(aws cloudformation describe-stacks --stack-name aws-sam-cli-managed-default --query 'Stacks[0].Outputs[?OutputKey==`SourceBucket`].OutputValue' --output text)
+          aws s3 cp agent-runtime.zip "s3://${SAM_BUCKET}/${KEY}"
           echo "bucket=${SAM_BUCKET}" >> $GITHUB_OUTPUT
           echo "key=${KEY}" >> $GITHUB_OUTPUT
 
