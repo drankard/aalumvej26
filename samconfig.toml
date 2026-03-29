@@ -10,3 +10,13 @@ confirm_changeset = false
 capabilities = "CAPABILITY_IAM"
 profile = "graveyard-master"
 resolve_s3 = true
+
+[ci.build.parameters]
+use_container = false
+
+[ci.deploy.parameters]
+stack_name = "aalumvej26"
+region = "eu-west-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
