@@ -66,6 +66,24 @@ Resources:
                 Action:
                   - cloudformation:CreateChangeSet
                 Resource: arn:aws:cloudformation:*:aws:transform/*
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:PutParameter
+                Resource: !Sub arn:aws:ssm:*:${AWS::AccountId}:parameter/aalumvej26/*
+              - Effect: Allow
+                Action:
+                  - events:PutRule
+                  - events:DeleteRule
+                  - events:DescribeRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                Resource: !Sub arn:aws:events:*:${AWS::AccountId}:rule/aalumvej26-*
+              - Effect: Allow
+                Action:
+                  - bedrock-agentcore:*
+                Resource: '*'
 
 Outputs:
   DeployRoleArn:
