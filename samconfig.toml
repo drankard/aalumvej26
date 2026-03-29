@@ -7,7 +7,7 @@ use_container = false
 stack_name = "aalumvej26"
 region = "eu-west-1"
 confirm_changeset = false
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 profile = "graveyard-master"
 resolve_s3 = true
 
@@ -18,5 +18,5 @@ use_container = false
 stack_name = "aalumvej26"
 region = "eu-west-1"
 confirm_changeset = false
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 resolve_s3 = true

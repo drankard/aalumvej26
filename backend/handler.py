@@ -7,10 +7,12 @@ from typing import Any
 import boto3
 
 import actions.greeting  # noqa: F401 — registers actions
+import actions.content  # noqa: F401 — registers actions
 from actions.registry import dispatch
 from models.base import RpcRequest, RpcResponse
 from repositories.base import DynamoDBAdapter
 from repositories.greeting import GreetingRepository
+from repositories.content import PostRepository, AreaRepository, CategoryRepository
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -24,11 +26,17 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         db = DynamoDBAdapter(table)
 
         greeting_repo = GreetingRepository(db)
+        post_repo = PostRepository(db)
+        area_repo = AreaRepository(db)
+        category_repo = CategoryRepository(db)
 
         result = dispatch(
             request.action,
             request.payload,
             greeting_repo=greeting_repo,
+            post_repo=post_repo,
+            area_repo=area_repo,
+            category_repo=category_repo,
         )
 
         response = RpcResponse(success=True, data=result)

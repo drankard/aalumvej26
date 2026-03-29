@@ -14,6 +14,9 @@ class DynamoDBAdapter:
         response = self._table.get_item(Key=key)
         return response.get("Item")
 
+    def delete_item(self, key: dict[str, str]) -> None:
+        self._table.delete_item(Key=key)
+
     def query(self, pk: str, **kwargs: Any) -> list[dict[str, Any]]:
         response = self._table.query(
             KeyConditionExpression="pk = :pk",

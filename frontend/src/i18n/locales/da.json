@@ -1,0 +1,80 @@
+{
+  "nav": {
+    "brand": "ÅLUMVEJ 26",
+    "experiences": "Oplevelser",
+    "house": "Huset",
+    "area": "Området",
+    "book": "Book"
+  },
+  "hero": {
+    "subtitle": "Agger \u00b7 Nationalpark Thy \u00b7 Vestkysten",
+    "title1": "Hvor havet",
+    "title2": "møder heden",
+    "description": "Din guide til Vestjyllands vildeste kyst \u2014 events, naturoplevelser og et charmerende stråtækt feriehus kun 200 meter fra bølgerne.",
+    "exploreBtn": "Udforsk området \u2193",
+    "houseBtn": "Se feriehuset"
+  },
+  "experiences": {
+    "updated": "Opdateret marts 2026",
+    "heading1": "Hvad sker der ",
+    "heading2": "i Thy & omegn?",
+    "showAll": "Vis alle {{count}} oplevelser",
+    "readMore": "Læs mere \u2192",
+    "allFilter": "Alt",
+    "showArchive": "Vis tidligere oplevelser",
+    "hideArchive": "Skjul tidligere oplevelser",
+    "archiveLabel": "Tidligere oplevelser"
+  },
+  "tags": {
+    "event": "Event",
+    "openNow": "Åbent nu",
+    "seasonBest": "Sæsonens bedste",
+    "guide": "Guide",
+    "kidFriendly": "Børnevenligt",
+    "activity": "Aktivitet",
+    "natureGem": "Naturperle",
+    "localFavorite": "Lokal favorit",
+    "culturalHistory": "Kulturhistorie",
+    "bigEvent": "Stor event"
+  },
+  "house": {
+    "address": "Ålumvej 26 \u00b7 7770 Vestervig \u00b7 Agger",
+    "heading1": "Lille feriehus med",
+    "heading2": "sjæl og charme",
+    "description": "Ældre charmerende, stråtækt feriehus på stor naturgrund i Agger. Nænsomt restaureret i gammel stil med moderne komfort. Østvendt lukket gårdhave, brændeovn og Vesterhavet lige om hjørnet.",
+    "bookBtn": "Se priser & ledighed \u2192",
+    "bookingNote": "Huset udlejes via Agger Feriehuse. Se aktuelle priser, ledighed og book direkte p\u00e5 deres side.",
+    "size": "60 m²",
+    "built": "Bygget 1900",
+    "renovated": "Renoveret 2000",
+    "bedrooms": "2 soverum"
+  },
+  "features": [
+    "🏖 200m til strand",
+    "🐕 Max 1 hund tilladt",
+    "🔥 Brændeovn",
+    "📶 WiFi & Chromecast",
+    "👥 4 sovepladser",
+    "🌿 1.000 m² naturgrund",
+    "♨️ Energi-varmepumpe",
+    "🧺 Opvask + vaskemask."
+  ],
+  "areas": {
+    "heading1": "Alt lige ",
+    "heading2": "om hjørnet",
+    "subtitle": "Afstande fra Agger"
+  },
+  "footer": {
+    "tagline": "Stråtækt feriehus i hjertet af Agger. Din guide til Vestjyllands vildeste kyst.",
+    "pages": "Sider",
+    "explore": "Udforsk",
+    "contact": "Kontakt",
+    "contactNote": "Al kontakt og booking sker via Agger Feriehuse",
+    "copyright": "\u00a9 2026 Ålumvej 26",
+    "bookingVia": "Booking via "
+  },
+  "sticky": {
+    "text": "Feriehus i Agger \u2014 200m fra Vesterhavet",
+    "cta": "Se ledige uger \u2192"
+  }
+}

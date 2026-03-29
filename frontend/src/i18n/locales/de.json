@@ -1,0 +1,80 @@
+{
+  "nav": {
+    "brand": "ÅLUMVEJ 26",
+    "experiences": "Erlebnisse",
+    "house": "Das Haus",
+    "area": "Die Gegend",
+    "book": "Buchen"
+  },
+  "hero": {
+    "subtitle": "Agger \u00b7 Nationalpark Thy \u00b7 Westk\u00fcste",
+    "title1": "Wo das Meer",
+    "title2": "die Heide trifft",
+    "description": "Ihr Guide zur wildesten K\u00fcste Westj\u00fctlands \u2014 Events, Naturerlebnisse und ein charmantes reetgedecktes Ferienhaus nur 200 Meter von den Wellen entfernt.",
+    "exploreBtn": "Gegend erkunden \u2193",
+    "houseBtn": "Ferienhaus ansehen"
+  },
+  "experiences": {
+    "updated": "Aktualisiert M\u00e4rz 2026",
+    "heading1": "Was passiert ",
+    "heading2": "in Thy & Umgebung?",
+    "showAll": "Alle {{count}} Erlebnisse anzeigen",
+    "readMore": "Mehr erfahren \u2192",
+    "allFilter": "Alle",
+    "showArchive": "Fr\u00fchere Erlebnisse anzeigen",
+    "hideArchive": "Fr\u00fchere Erlebnisse ausblenden",
+    "archiveLabel": "Fr\u00fchere Erlebnisse"
+  },
+  "tags": {
+    "event": "Event",
+    "openNow": "Jetzt ge\u00f6ffnet",
+    "seasonBest": "Saisonhighlight",
+    "guide": "Guide",
+    "kidFriendly": "Familienfreundlich",
+    "activity": "Aktivit\u00e4t",
+    "natureGem": "Naturjuwel",
+    "localFavorite": "Geheimtipp",
+    "culturalHistory": "Kulturgeschichte",
+    "bigEvent": "Gro\u00dfes Event"
+  },
+  "house": {
+    "address": "\u00c5lumvej 26 \u00b7 7770 Vestervig \u00b7 Agger",
+    "heading1": "Kleines Ferienhaus mit",
+    "heading2": "Seele und Charme",
+    "description": "Charmantes, \u00e4lteres reetgedecktes Ferienhaus auf gro\u00dfem Naturgrundstueck in Agger. Behutsam im alten Stil restauriert mit modernem Komfort. Ostausgerichteter geschlossener Innenhof, Kaminofen und die Nordsee gleich um die Ecke.",
+    "bookBtn": "Preise & Verf\u00fcgbarkeit \u2192",
+    "bookingNote": "Das Haus wird \u00fcber Agger Feriehuse vermietet. Aktuelle Preise, Verf\u00fcgbarkeit und Buchung direkt auf deren Seite.",
+    "size": "60 m\u00b2",
+    "built": "Baujahr 1900",
+    "renovated": "Renoviert 2000",
+    "bedrooms": "2 Schlafzimmer"
+  },
+  "features": [
+    "\ud83c\udfd6 200m zum Strand",
+    "\ud83d\udc15 Max. 1 Hund erlaubt",
+    "\ud83d\udd25 Kaminofen",
+    "\ud83d\udcf6 WLAN & Chromecast",
+    "\ud83d\udc65 4 Schlafpl\u00e4tze",
+    "\ud83c\udf3f 1.000 m\u00b2 Naturgrundstueck",
+    "\u2668\ufe0f W\u00e4rmepumpe",
+    "\ud83e\uddf2 Geschirrsp. + Waschm."
+  ],
+  "areas": {
+    "heading1": "Alles liegt ",
+    "heading2": "gleich um die Ecke",
+    "subtitle": "Entfernungen von Agger"
+  },
+  "footer": {
+    "tagline": "Reetgedecktes Ferienhaus im Herzen von Agger. Ihr Guide zur wildesten K\u00fcste Westj\u00fctlands.",
+    "pages": "Seiten",
+    "explore": "Entdecken",
+    "contact": "Kontakt",
+    "contactNote": "Kontakt und Buchung \u00fcber Agger Feriehuse",
+    "copyright": "\u00a9 2026 \u00c5lumvej 26",
+    "bookingVia": "Buchung \u00fcber "
+  },
+  "sticky": {
+    "text": "Ferienhaus in Agger \u2014 200m von der Nordsee",
+    "cta": "Verf\u00fcgbarkeit pr\u00fcfen \u2192"
+  }
+}

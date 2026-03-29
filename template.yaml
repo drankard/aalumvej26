@@ -12,8 +12,92 @@ Parameters:
   Stage:
     Type: String
     Default: prod
+  ContentAgentCodeBucket:
+    Type: String
+    Description: S3 bucket containing the content agent code zip
+    Default: ''
+  ContentAgentCodeKey:
+    Type: String
+    Description: S3 key of the content agent code zip
+    Default: ''
+
+Conditions:
+  HasAgentCode: !Not [!Equals [!Ref ContentAgentCodeBucket, '']]
 
 Resources:
+  # AgentCore Execution Role (created only when agent code is provided)
+  ContentAgentExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: HasAgentCode
+    Properties:
+      RoleName: !Sub aalumvej26-content-agent-role-${Stage}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ContentAgentPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt AppTable.Arn
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:GetPrompt
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/aalumvej26/*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # AgentCore Content Runtime (created only when agent code is provided)
+  ContentAgentRuntime:
+    Type: AWS::BedrockAgentCore::Runtime
+    Condition: HasAgentCode
+    Properties:
+      AgentRuntimeName: !Sub aalumvej26_content_agent_${Stage}
+      Description: Aalumvej26 content discovery and publishing agent
+      AgentRuntimeArtifact:
+        CodeConfiguration:
+          Code:
+            S3:
+              Bucket: !Ref ContentAgentCodeBucket
+              Prefix: !Ref ContentAgentCodeKey
+          EntryPoint:
+            - agent.py
+          Runtime: PYTHON_3_12
+      RoleArn: !GetAtt ContentAgentExecutionRole.Arn
+      EnvironmentVariables:
+        AGENT_NAME: Aalumvej26 Content Agent
+        AWS_REGION: !Ref AWS::Region
+        TABLE_NAME: !Ref AppTable
+        MODEL_ID_PARAM: /aalumvej26/ai/model-id
+        BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
+        OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
+        OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
+      LifecycleConfiguration:
+        IdleRuntimeSessionTimeout: 300
+        MaxLifetime: 3600
+      NetworkConfiguration:
+        NetworkMode: PUBLIC
+      ProtocolConfiguration: HTTP
+
   AppTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -64,6 +148,75 @@ Resources:
         AllowHeaders:
           - Content-Type
 
+  # Content Agent Invoker Lambda
+  ContentAgentInvokerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub aalumvej26-content-invoker-${Stage}
+      CodeUri: backend/lambdas/content_agent_invoker/
+      Handler: handler.lambda_handler
+      Timeout: 900
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppTable
+          STAGE: !Ref Stage
+          CONTENT_RUNTIME_ARN: !If [HasAgentCode, !GetAtt ContentAgentRuntime.AgentRuntimeArn, '']
+          BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
+          OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
+          OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock-agentcore:InvokeAgentRuntime
+              Resource: '*'
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:GetPrompt
+              Resource: '*'
+
+  OplevelsSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aalumvej26-oplevelser-schedule-${Stage}
+      ScheduleExpression: 'cron(0 0 ? * SUN *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ContentAgentInvokerFunction.Arn
+          Id: OplevelsTarget
+          Input: '{"pipeline": "oplevelser"}'
+
+  OplevelsSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ContentAgentInvokerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt OplevelsSchedule.Arn
+
+  OmraadetSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aalumvej26-omraadet-schedule-${Stage}
+      ScheduleExpression: 'cron(0 6 ? * 2#1 *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ContentAgentInvokerFunction.Arn
+          Id: OmraadetTarget
+          Input: '{"pipeline": "omraadet"}'
+
+  OmraadetSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ContentAgentInvokerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt OmraadetSchedule.Arn
+
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -98,3 +251,9 @@ Outputs:
     Value: !Ref FrontendBucket
   TableName:
     Value: !Ref AppTable
+  ContentAgentRuntimeArn:
+    Condition: HasAgentCode
+    Value: !GetAtt ContentAgentRuntime.AgentRuntimeArn
+  ContentAgentRuntimeId:
+    Condition: HasAgentCode
+    Value: !Ref ContentAgentRuntime

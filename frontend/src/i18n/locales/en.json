@@ -1,0 +1,80 @@
+{
+  "nav": {
+    "brand": "ÅLUMVEJ 26",
+    "experiences": "Experiences",
+    "house": "The House",
+    "area": "The Area",
+    "book": "Book"
+  },
+  "hero": {
+    "subtitle": "Agger \u00b7 Thy National Park \u00b7 West Coast",
+    "title1": "Where the sea",
+    "title2": "meets the heath",
+    "description": "Your guide to Western Jutland's wildest coast \u2014 events, nature experiences, and a charming thatched holiday cottage just 200 metres from the waves.",
+    "exploreBtn": "Explore the area \u2193",
+    "houseBtn": "See the cottage"
+  },
+  "experiences": {
+    "updated": "Updated March 2026",
+    "heading1": "What's happening ",
+    "heading2": "in Thy & surroundings?",
+    "showAll": "Show all {{count}} experiences",
+    "readMore": "Read more \u2192",
+    "allFilter": "All",
+    "showArchive": "Show past experiences",
+    "hideArchive": "Hide past experiences",
+    "archiveLabel": "Past experiences"
+  },
+  "tags": {
+    "event": "Event",
+    "openNow": "Open Now",
+    "seasonBest": "Season's Best",
+    "guide": "Guide",
+    "kidFriendly": "Family Friendly",
+    "activity": "Activity",
+    "natureGem": "Nature Gem",
+    "localFavorite": "Local Favorite",
+    "culturalHistory": "Cultural History",
+    "bigEvent": "Major Event"
+  },
+  "house": {
+    "address": "Ålumvej 26 \u00b7 7770 Vestervig \u00b7 Agger",
+    "heading1": "A small cottage with",
+    "heading2": "soul and charm",
+    "description": "Charming, older thatched holiday cottage on a large natural plot in Agger. Carefully restored in traditional style with modern comfort. East-facing enclosed courtyard, wood-burning stove, and the North Sea just around the corner.",
+    "bookBtn": "See prices & availability \u2192",
+    "bookingNote": "The house is rented through Agger Feriehuse. See current prices, availability, and book directly on their site.",
+    "size": "60 m\u00b2",
+    "built": "Built 1900",
+    "renovated": "Renovated 2000",
+    "bedrooms": "2 bedrooms"
+  },
+  "features": [
+    "🏖 200m to beach",
+    "🐕 Max 1 dog allowed",
+    "🔥 Wood stove",
+    "📶 WiFi & Chromecast",
+    "👥 Sleeps 4",
+    "🌿 1,000 m\u00b2 natural plot",
+    "♨️ Heat pump",
+    "🧺 Dishwasher + washing m."
+  ],
+  "areas": {
+    "heading1": "Everything is ",
+    "heading2": "just around the corner",
+    "subtitle": "Distances from Agger"
+  },
+  "footer": {
+    "tagline": "Thatched holiday cottage in the heart of Agger. Your guide to Western Jutland's wildest coast.",
+    "pages": "Pages",
+    "explore": "Explore",
+    "contact": "Contact",
+    "contactNote": "All contact and booking through Agger Feriehuse",
+    "copyright": "\u00a9 2026 Ålumvej 26",
+    "bookingVia": "Booking via "
+  },
+  "sticky": {
+    "text": "Holiday cottage in Agger \u2014 200m from the North Sea",
+    "cta": "See available weeks \u2192"
+  }
+}

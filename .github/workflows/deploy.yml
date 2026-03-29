@@ -22,13 +22,47 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        run: pip install uv
+
       - uses: aws-actions/setup-sam@v2
+
+      - name: Package agent runtime
+        run: |
+          mkdir -p .agent-build
+          uv pip install \
+            -r backend/agentcore_runtimes/content/requirements.txt \
+            --target .agent-build \
+            --python-platform aarch64-manylinux2014 \
+            --only-binary :all: \
+            --python-version 3.12
+          cp -r backend/agentcore_runtimes/content/* .agent-build/
+          cd .agent-build
+          zip -r ../agent-runtime.zip . -x "__pycache__/*" "*.pyc"
+
+      - name: Upload agent runtime to S3
+        id: agent
+        run: |
+          HASH=$(sha256sum agent-runtime.zip | cut -c1-16)
+          KEY="agent-runtime/${HASH}.zip"
+          BUCKET=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucket`].OutputValue' --output text 2>/dev/null || echo "")
+          SAM_BUCKET=$(aws s3api list-buckets --query 'Buckets[?starts_with(Name,`aws-sam-cli-managed`)].Name' --output text | head -1)
+          aws s3 cp agent-runtime.zip s3://${SAM_BUCKET}/${KEY}
+          echo "bucket=${SAM_BUCKET}" >> $GITHUB_OUTPUT
+          echo "key=${KEY}" >> $GITHUB_OUTPUT
 
       - name: SAM build
         run: sam build --config-env ci
 
       - name: SAM deploy
-        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --config-env ci
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --config-env ci \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              "ContentAgentCodeBucket=${{ steps.agent.outputs.bucket }} ContentAgentCodeKey=${{ steps.agent.outputs.key }}"
 
       - name: Get stack outputs
         id: stack
