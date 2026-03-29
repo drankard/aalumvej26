@@ -129,21 +129,21 @@ function App() {
     { id: "omraadet", key: "nav.area" },
   ];
   const houseImages = [
-    "/images/house/01-exterior.jpg",
-    "/images/house/07-livingroom1.jpg",
-    "/images/house/08-livingroom2.jpg",
-    "/images/house/03-kitchen1.jpg",
-    "/images/house/04-kitchen2.jpg",
-    "/images/house/10-bedroom1.jpg",
-    "/images/house/12-bedroom2.jpg",
-    "/images/house/13-bathroom.jpg",
-    "/images/house/02-exterior2.jpg",
-    "/images/house/05-house3.jpg",
-    "/images/house/06-house4.jpg",
-    "/images/house/11-house5.jpg",
-    "/images/house/14-house6.jpg",
-    "/images/house/15-house7.jpg",
-    "/images/house/16-house8.jpg",
+    { src: "/images/house/01-exterior.jpg", alt: "Stråtækt feriehus set udefra, Aalumvej 26 i Agger" },
+    { src: "/images/house/07-livingroom1.jpg", alt: "Hyggelig stue med brændeovn i feriehuset" },
+    { src: "/images/house/08-livingroom2.jpg", alt: "Lys stue med udsigt til naturen" },
+    { src: "/images/house/03-kitchen1.jpg", alt: "Fuldt udstyret køkken med spiseplads" },
+    { src: "/images/house/04-kitchen2.jpg", alt: "Køkken med moderne faciliteter" },
+    { src: "/images/house/10-bedroom1.jpg", alt: "Soveværelse med dobbeltseng" },
+    { src: "/images/house/12-bedroom2.jpg", alt: "Ekstra soveværelse i feriehuset" },
+    { src: "/images/house/13-bathroom.jpg", alt: "Badeværelse med brusekabine" },
+    { src: "/images/house/02-exterior2.jpg", alt: "Feriehuset set fra haven med stor naturgrund" },
+    { src: "/images/house/05-house3.jpg", alt: "Stråtag og træfacade i naturlige omgivelser" },
+    { src: "/images/house/06-house4.jpg", alt: "Indgangsparti med charme og karakter" },
+    { src: "/images/house/11-house5.jpg", alt: "Interiør detalje fra det renoverede feriehus" },
+    { src: "/images/house/14-house6.jpg", alt: "Udeområde med terrasse og grønt" },
+    { src: "/images/house/15-house7.jpg", alt: "Naturgrund med klitlandskab tæt på havet" },
+    { src: "/images/house/16-house8.jpg", alt: "Aftenstemning ved feriehuset i Agger" },
   ];
   const features = t("features", { returnObjects: true }) as unknown as string[];
 
@@ -253,8 +253,8 @@ function App() {
             position: "relative", borderRadius: "14px", overflow: "hidden",
             aspectRatio: "4/3", background: C.sand, cursor: "pointer",
           }}>
-            {houseImages.map((src, i) => (
-              <img key={i} src={src} alt="" style={{
+            {houseImages.map((img, i) => (
+              <img key={i} src={img.src} alt={img.alt} loading={i === 0 ? "eager" : "lazy"} style={{
                 position: "absolute", inset: 0, width: "100%", height: "100%",
                 objectFit: "cover", opacity: hImg === i ? 1 : 0, transition: "opacity 1s",
               }} />
@@ -264,7 +264,7 @@ function App() {
               display: "flex", gap: "4px", background: "rgba(0,0,0,0.3)",
               padding: "5px 9px", borderRadius: "10px", pointerEvents: "none",
             }}>
-              {houseImages.map((_, i) => (
+              {houseImages.map((_img, i) => (
                 <div key={i} style={{
                   width: hImg === i ? "16px" : "5px", height: "5px", borderRadius: "3px",
                   transition: "all 0.3s",
@@ -348,8 +348,21 @@ function App() {
               );
             })}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "20px", opacity: loading ? 0.4 : 1, transition: "opacity 0.3s" }}>
-            {displayed.map((item, i) => <Card key={item.id} item={item} idx={i} />)}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "20px" }}>
+            {loading ? [0, 1, 2].map((i) => (
+              <div key={i} style={{
+                background: "white", borderRadius: "12px", overflow: "hidden",
+                animation: "pulse 1.5s ease-in-out infinite",
+              }}>
+                <div style={{ height: "100px", background: "rgba(44,62,80,0.06)" }} />
+                <div style={{ padding: "20px 22px 24px" }}>
+                  <div style={{ height: "10px", width: "60px", background: "rgba(44,62,80,0.08)", borderRadius: "4px", marginBottom: "12px" }} />
+                  <div style={{ height: "16px", width: "80%", background: "rgba(44,62,80,0.08)", borderRadius: "4px", marginBottom: "10px" }} />
+                  <div style={{ height: "12px", width: "100%", background: "rgba(44,62,80,0.05)", borderRadius: "4px", marginBottom: "6px" }} />
+                  <div style={{ height: "12px", width: "70%", background: "rgba(44,62,80,0.05)", borderRadius: "4px" }} />
+                </div>
+              </div>
+            )) : displayed.map((item, i) => <Card key={item.id} item={item} idx={i} />)}
           </div>
           {filtered.length > 6 && !showAll ? (
             <div style={{ textAlign: "center", marginTop: "40px" }}>
@@ -391,7 +404,17 @@ function App() {
             {t("areas.heading1")}<em style={{ fontStyle: "italic", color: C.sea }}>{t("areas.heading2")}</em>
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: "14px" }}>
-            {areas.map((area) => {
+            {loading ? [0, 1, 2, 3].map((i) => (
+              <div key={i} style={{
+                padding: "24px", background: "white", borderRadius: "11px",
+                border: "1px solid rgba(212,197,169,0.3)",
+                animation: "pulse 1.5s ease-in-out infinite",
+              }}>
+                <div style={{ height: "10px", width: "80px", background: "rgba(44,62,80,0.08)", borderRadius: "4px", marginBottom: "8px" }} />
+                <div style={{ height: "16px", width: "70%", background: "rgba(44,62,80,0.08)", borderRadius: "4px", marginBottom: "10px" }} />
+                <div style={{ height: "12px", width: "100%", background: "rgba(44,62,80,0.05)", borderRadius: "4px" }} />
+              </div>
+            )) : areas.map((area) => {
               const atr = area.translations[i18n.language] ?? area.translations["da"];
               return (
                 <a key={area.id} href={area.url} target="_blank" rel="noopener noreferrer" style={{
