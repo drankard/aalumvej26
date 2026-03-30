@@ -20,7 +20,6 @@ from tools.web_search import search
 from tools.web_fetch import fetch_content
 from tools.content_db import list_published_posts, list_published_areas, create_post, archive_post, update_area
 from tools.url_validator import validate_url
-from tools.notify import publish_summary
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,7 +43,7 @@ bedrock_model = BedrockModel(
     ),
 )
 
-TOOLS = [search, fetch_content, list_published_posts, list_published_areas, create_post, archive_post, update_area, validate_url, publish_summary]
+TOOLS = [search, fetch_content, list_published_posts, list_published_areas, create_post, archive_post, update_area, validate_url]
 
 
 @app.entrypoint
@@ -82,8 +81,7 @@ async def invoke(payload, context):
         user_message = (
             "Execute the content pipeline now. Search for new content, evaluate it, "
             "and use the content_db tools to publish high-quality items. "
-            "IMPORTANT: When you are done, you MUST call publish_summary() as the very last tool call "
-            "to send an email notification with your run summary. Do not skip this step."
+            "Return a structured JSON summary of your run."
         )
 
         stream = agent.stream_async(user_message)

@@ -76,11 +76,6 @@ Resources:
                 Action:
                   - ssm:GetParameter
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/aalumvej26/*'
-              - Sid: SNSPublish
-                Effect: Allow
-                Action:
-                  - sns:Publish
-                Resource: !Ref ContentSummaryTopic
               - Sid: CloudWatchLogsGroup
                 Effect: Allow
                 Action:
@@ -123,7 +118,6 @@ Resources:
         BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
         OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
         OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
-        SNS_TOPIC_ARN: !Ref ContentSummaryTopic
       LifecycleConfiguration:
         IdleRuntimeSessionTimeout: 300
         MaxLifetime: 3600
@@ -249,6 +243,64 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt OmraadetSchedule.Arn
+
+  ContentNotifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub aalumvej26-content-notifier-${Stage}
+      CodeUri: backend/lambdas/content_notifier/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppTable
+          SNS_TOPIC_ARN: !Ref ContentSummaryTopic
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AppTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref ContentSummaryTopic
+
+  OplevelsNotifySchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aalumvej26-oplevelser-notify-${Stage}
+      ScheduleExpression: 'cron(10 0 ? * SUN *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ContentNotifierFunction.Arn
+          Id: OplevelsNotifyTarget
+          Input: '{"pipeline": "oplevelser"}'
+
+  OplevelsNotifyPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ContentNotifierFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt OplevelsNotifySchedule.Arn
+
+  OmraadetNotifySchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aalumvej26-omraadet-notify-${Stage}
+      ScheduleExpression: 'cron(16 6 ? * 2#1 *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ContentNotifierFunction.Arn
+          Id: OmraadetNotifyTarget
+          Input: '{"pipeline": "omraadet"}'
+
+  OmraadetNotifyPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ContentNotifierFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt OmraadetNotifySchedule.Arn
 
   ContentSummaryTopic:
     Type: AWS::SNS::Topic

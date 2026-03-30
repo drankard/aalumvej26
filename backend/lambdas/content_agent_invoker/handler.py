@@ -97,6 +97,17 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         context_vars["current_areas"] = json.dumps(areas, ensure_ascii=False)
         context_vars["oplevelser_last_90d"] = json.dumps(posts, ensure_ascii=False)
 
+    table.put_item(Item={
+        "pk": "PIPELINE_SNAPSHOT",
+        "sk": pipeline,
+        "post_ids": set(p["id"] for p in posts) or {"_empty"},
+        "area_ids": set(a["id"] for a in areas) or {"_empty"},
+        "post_titles": {p["id"]: p["title"] for p in posts},
+        "area_names": {a["id"]: a["name"] for a in areas},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    logger.info(f"Saved pre-run snapshot for pipeline={pipeline}")
+
     payload = {
         "pipeline": pipeline,
         "context_vars": context_vars,
