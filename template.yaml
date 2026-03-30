@@ -20,9 +20,17 @@ Parameters:
     Type: String
     Description: S3 key of the content agent code zip
     Default: ''
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN in us-east-1 for aalumvej26.dk (required for CloudFront)
+    Default: ''
+  DomainName:
+    Type: String
+    Default: aalumvej26.dk
 
 Conditions:
   HasAgentCode: !Not [!Equals [!Ref ContentAgentCodeBucket, '']]
+  HasCertificate: !Not [!Equals [!Ref CertificateArn, '']]
 
 Resources:
   # AgentCore Execution Role (created only when agent code is provided)
@@ -315,6 +323,42 @@ Resources:
       Protocol: email
       Endpoint: david@graveyard.dk
 
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Condition: HasCertificate
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          - !Ref DomainName
+          - !Sub www.${DomainName}
+        Origins:
+          - Id: S3Website
+            DomainName: !Sub aalumvej26-frontend-${Stage}.s3-website-${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: S3Website
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ResponseHeadersPolicyId: eaab4381-ed33-4a86-88ca-d9558dc6cd63
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        HttpVersion: http2and3
+
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -349,6 +393,12 @@ Outputs:
     Value: !Ref FrontendBucket
   TableName:
     Value: !Ref AppTable
+  CloudFrontDomain:
+    Condition: HasCertificate
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  CloudFrontDistributionId:
+    Condition: HasCertificate
+    Value: !Ref CloudFrontDistribution
   ContentAgentRuntimeArn:
     Condition: HasAgentCode
     Value: !GetAtt ContentAgentRuntime.AgentRuntimeArn
