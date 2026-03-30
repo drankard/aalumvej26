@@ -76,6 +76,11 @@ Resources:
                 Action:
                   - ssm:GetParameter
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/aalumvej26/*'
+              - Sid: SNSPublish
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref ContentSummaryTopic
               - Sid: CloudWatchLogsGroup
                 Effect: Allow
                 Action:
@@ -118,6 +123,7 @@ Resources:
         BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
         OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
         OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
+        SNS_TOPIC_ARN: !Ref ContentSummaryTopic
       LifecycleConfiguration:
         IdleRuntimeSessionTimeout: 300
         MaxLifetime: 3600
@@ -243,6 +249,19 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt OmraadetSchedule.Arn
+
+  ContentSummaryTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub aalumvej26-content-summary-${Stage}
+      DisplayName: Aalumvej26 Content Pipeline
+
+  ContentSummarySubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref ContentSummaryTopic
+      Protocol: email
+      Endpoint: david@graveyard.dk
 
   FrontendBucket:
     Type: AWS::S3::Bucket
