@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://aalumvej26.dk/sitemap.xml
+Sitemap: https://www.aalumvej26.dk/sitemap.xml
