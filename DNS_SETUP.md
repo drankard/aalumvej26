@@ -26,18 +26,16 @@ Domain registered at Hostinger. SSL via AWS ACM, served through CloudFront.
 
 ### Domain pointing
 
-| Type  | Name  | Value                            | Notes                                              |
-|-------|-------|----------------------------------|----------------------------------------------------|
-| CNAME | `www` | `dcpy1eir4hbjk.cloudfront.net`   | Main entry point                                   |
-| CNAME | `@`   | `dcpy1eir4hbjk.cloudfront.net`   | If Hostinger won't allow CNAME on root, see below  |
+| Type  | Name  | Value                            | Notes                        |
+|-------|-------|----------------------------------|------------------------------|
+| CNAME | `www` | `dcpy1eir4hbjk.cloudfront.net`   | Primary domain               |
 
-**Root domain fallback**: If Hostinger rejects a CNAME on `@`, delete the A record (`2.57.91.91`) and set up a URL redirect from `aalumvej26.dk` to `www.aalumvej26.dk` in Hostinger's redirect settings.
+Hostinger doesn't support ALIAS/ANAME records, so the root domain (`aalumvej26.dk`) can't point directly to CloudFront. Instead:
 
-### Records to remove
+1. **Delete** the A record `@` → `2.57.91.91`
+2. Set up a **URL redirect** in Hostinger: `aalumvej26.dk` → `https://www.aalumvej26.dk`
 
-| Type | Name | Old value     | Reason                          |
-|------|------|---------------|---------------------------------|
-| A    | `@`  | `2.57.91.91`  | Hostinger default, no longer needed |
+The canonical URL is `https://www.aalumvej26.dk`.
 
 ## Architecture
 
