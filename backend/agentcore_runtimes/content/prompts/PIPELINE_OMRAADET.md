@@ -36,8 +36,8 @@ Call **list_published_areas()** to get the current area cards. Review each one.
 
 For each area card in the current set:
 
-1. Call **web_fetch(url)** on the linked URL. Is it still live? Has the content changed?
-2. Run a quick **web_search("{area_name} nyt 2026")** to check for major news.
+1. Call **fetch_content(url)** on the linked URL. Is it still live? Has the content changed?
+2. Run a quick **search("{area_name} nyt 2026")** to check for major news.
 3. Flag each card as:
    - **unchanged** — No updates needed
    - **minor_update** — Small factual change (hours, new detail)

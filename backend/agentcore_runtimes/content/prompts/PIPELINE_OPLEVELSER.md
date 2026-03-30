@@ -44,7 +44,7 @@ Search for events in the next 2–6 weeks:
 
 **Mode B — Source crawl**
 
-Use web_fetch on 4–6 source pages to scan for new content:
+Use fetch_content on 4–6 source pages to scan for new content:
 - visit-nordvestkysten.com (events section)
 - nationalparkthy.dk (activities)
 - jesperhus.dk (seasonal news)
