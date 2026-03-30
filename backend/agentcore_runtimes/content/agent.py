@@ -4,7 +4,7 @@ Aalumvej26 Content Agent — AgentCore Runtime
 Stateless agent that discovers and writes content for the vacation rental site.
 Two pipelines: oplevelser (events/activities) and omraadet (area reference cards).
 Prompts composed from Bedrock Prompt Manager: BASE_SYSTEM + pipeline-specific prompt.
-Web search via DuckDuckGo MCP server (free, no API key).
+Web search via DuckDuckGo (free, no API key).
 """
 import logging
 import os
@@ -13,12 +13,11 @@ from bedrock_agentcore import BedrockAgentCoreApp
 from botocore.config import Config as BotocoreConfig
 from strands import Agent
 from strands.models import BedrockModel
-from strands.tools.mcp import MCPClient
-from mcp import StdioServerParameters
-from mcp.client.stdio import stdio_client
 
 from config import ConfigService
 from prompt_service import PromptService
+from tools.web_search import search
+from tools.web_fetch import fetch_content
 from tools.content_db import list_published_posts, list_published_areas, create_post, archive_post, update_area
 from tools.url_validator import validate_url
 
@@ -44,7 +43,7 @@ bedrock_model = BedrockModel(
     ),
 )
 
-CONTENT_TOOLS = [list_published_posts, list_published_areas, create_post, archive_post, update_area, validate_url]
+TOOLS = [search, fetch_content, list_published_posts, list_published_areas, create_post, archive_post, update_area, validate_url]
 
 
 @app.entrypoint
@@ -72,27 +71,22 @@ async def invoke(payload, context):
             context_vars=context_vars,
         )
 
-        ddg = MCPClient(lambda: stdio_client(StdioServerParameters(
-            command="duckduckgo-mcp-server",
-        )))
+        agent = Agent(
+            name=config.agent_name,
+            model=bedrock_model,
+            system_prompt=system_prompt,
+            tools=TOOLS,
+        )
 
-        with ddg:
-            agent = Agent(
-                name=config.agent_name,
-                model=bedrock_model,
-                system_prompt=system_prompt,
-                tools=[ddg, *CONTENT_TOOLS],
-            )
+        user_message = (
+            "Execute the content pipeline now. Search for new content, evaluate it, "
+            "and use the content_db tools to publish high-quality items. "
+            "Return a structured JSON summary of your run."
+        )
 
-            user_message = (
-                "Execute the content pipeline now. Search for new content, evaluate it, "
-                "and use the content_db tools to publish high-quality items. "
-                "Return a structured JSON summary of your run."
-            )
-
-            stream = agent.stream_async(user_message)
-            async for event in stream:
-                yield event
+        stream = agent.stream_async(user_message)
+        async for event in stream:
+            yield event
 
         logger.info(f"Content agent run complete: pipeline={pipeline}")
 
