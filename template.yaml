@@ -58,6 +58,13 @@ Resources:
                 Resource:
                   - 'arn:aws:bedrock:*::foundation-model/*'
                   - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:*'
+                  - 'arn:aws:bedrock:*:*:inference-profile/*'
+              - Sid: MarketplaceAccess
+                Effect: Allow
+                Action:
+                  - aws-marketplace:ViewSubscriptions
+                  - aws-marketplace:Subscribe
+                Resource: '*'
               - Sid: BedrockPromptAccess
                 Effect: Allow
                 Action:
