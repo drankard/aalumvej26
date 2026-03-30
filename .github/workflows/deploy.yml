@@ -61,7 +61,7 @@ jobs:
             --config-env ci \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
-              "ContentAgentCodeBucket=${{ steps.agent.outputs.bucket }} ContentAgentCodeKey=${{ steps.agent.outputs.key }}"
+              "ContentAgentCodeBucket=${{ steps.agent.outputs.bucket }} ContentAgentCodeKey=${{ steps.agent.outputs.key }} CertificateArn=arn:aws:acm:us-east-1:622327379339:certificate/d4006225-e2c7-49cb-80a2-b8073e8b10d0"
 
       - name: Get stack outputs
         id: stack
@@ -83,3 +83,10 @@ jobs:
 
       - name: Deploy frontend
         run: aws s3 sync frontend/dist s3://${{ steps.stack.outputs.bucket }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DIST_ID=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null || true)
+          if [ -n "$DIST_ID" ] && [ "$DIST_ID" != "None" ]; then
+            aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+          fi
