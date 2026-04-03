@@ -87,7 +87,7 @@ prompt_service = PromptService(region=config.aws_region)
 bedrock_model = BedrockModel(
     model_id=config.get_model_id(),
     streaming=True,
-    max_tokens=16384,
+    max_tokens=65536,
     boto_client_config=BotocoreConfig(
         read_timeout=300,
         retries={"max_attempts": 0},

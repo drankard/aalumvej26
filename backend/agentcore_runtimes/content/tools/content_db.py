@@ -1,9 +1,12 @@
 """DynamoDB content tools for reading and writing posts and areas."""
 import json
+import logging
 import os
 
 import boto3
 from strands import tool
+
+logger = logging.getLogger(__name__)
 
 _table = None
 
@@ -102,9 +105,16 @@ def create_post(
     }
 
     table = _get_table()
-    table.put_item(Item=item)
+    title = translations.get("da", {}).get("title", "")
+    logger.info(f"Writing post to DynamoDB: id={post_id}, category={category}, title={title}")
+    try:
+        table.put_item(Item=item)
+        logger.info(f"Post written successfully: id={post_id}")
+    except Exception as e:
+        logger.error(f"Failed to write post: id={post_id}, error={e}")
+        return {"success": False, "error": str(e)}
 
-    return {"success": True, "post_id": post_id, "title": translations.get("da", {}).get("title", "")}
+    return {"success": True, "post_id": post_id, "title": title}
 
 
 @tool
@@ -220,6 +230,12 @@ def save_run_summary(
     }
 
     table = _get_table()
-    table.put_item(Item=item)
+    logger.info(f"Writing run summary: pipeline={pipeline}, published={published}, archived={archived}")
+    try:
+        table.put_item(Item=item)
+        logger.info(f"Run summary written: pipeline={pipeline}, timestamp={now}")
+    except Exception as e:
+        logger.error(f"Failed to write run summary: {e}")
+        return {"success": False, "error": str(e)}
 
     return {"success": True, "timestamp": now}
