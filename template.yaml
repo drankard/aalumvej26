@@ -100,6 +100,11 @@ Resources:
                   - logs:PutLogEvents
                 Resource:
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*'
+              - Sid: InvokeNotifier
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt ContentNotifierFunction.Arn
 
   # AgentCore Content Runtime (created only when agent code is provided)
   ContentAgentRuntime:
@@ -126,6 +131,7 @@ Resources:
         BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
         OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
         OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
+        NOTIFIER_FUNCTION_ARN: !GetAtt ContentNotifierFunction.Arn
       LifecycleConfiguration:
         IdleRuntimeSessionTimeout: 300
         MaxLifetime: 3600
@@ -197,7 +203,6 @@ Resources:
           TABLE_NAME: !Ref AppTable
           STAGE: !Ref Stage
           CONTENT_RUNTIME_ARN: !If [HasAgentCode, !GetAtt ContentAgentRuntime.AgentRuntimeArn, '']
-          NOTIFIER_FUNCTION_ARN: !GetAtt ContentNotifierFunction.Arn
           BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
           OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
           OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
@@ -214,11 +219,6 @@ Resources:
               Action:
                 - bedrock:GetPrompt
               Resource: '*'
-        - Statement:
-            - Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !GetAtt ContentNotifierFunction.Arn
 
   OplevelsSchedule:
     Type: AWS::Events::Rule

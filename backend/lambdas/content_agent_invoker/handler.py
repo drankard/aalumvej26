@@ -131,19 +131,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     logger.info(f"AgentCore invocation complete for pipeline={pipeline}")
 
-    notifier_arn = os.environ.get("NOTIFIER_FUNCTION_ARN", "")
-    if notifier_arn:
-        logger.info(f"Invoking notifier for pipeline={pipeline}")
-        lambda_client = boto3.client("lambda")
-        lambda_client.invoke(
-            FunctionName=notifier_arn,
-            InvocationType="Event",
-            Payload=json.dumps({"pipeline": pipeline}),
-        )
-    else:
-        logger.warning("NOTIFIER_FUNCTION_ARN not set, skipping notification")
-
     return {
         "statusCode": 200,
-        "body": json.dumps({"pipeline": pipeline, "status": "completed"}),
+        "body": json.dumps({"pipeline": pipeline, "status": "invoked"}),
     }

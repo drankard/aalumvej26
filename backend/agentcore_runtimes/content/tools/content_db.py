@@ -238,4 +238,17 @@ def save_run_summary(
         logger.error(f"Failed to write run summary: {e}")
         return {"success": False, "error": str(e)}
 
+    notifier_arn = os.environ.get("NOTIFIER_FUNCTION_ARN", "")
+    if notifier_arn:
+        try:
+            lambda_client = boto3.client("lambda")
+            lambda_client.invoke(
+                FunctionName=notifier_arn,
+                InvocationType="Event",
+                Payload=json.dumps({"pipeline": pipeline}),
+            )
+            logger.info(f"Notifier invoked for pipeline={pipeline}")
+        except Exception as e:
+            logger.warning(f"Failed to invoke notifier: {e}")
+
     return {"success": True, "timestamp": now}
