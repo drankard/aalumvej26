@@ -170,3 +170,56 @@ def update_area(
 
     table.put_item(Item=item)
     return {"success": True, "area_id": area_id}
+
+
+@tool
+def save_run_summary(
+    pipeline: str,
+    sources_searched: int,
+    sources_failed: list[str],
+    candidates_found: int,
+    published: int,
+    archived: int,
+    rejections: dict,
+    events_next_14d: int,
+    notes: str | None = None,
+) -> dict:
+    """Save a structured run summary to DynamoDB. Call this as your LAST action.
+
+    Args:
+        pipeline: Pipeline name ("oplevelser" or "omraadet")
+        sources_searched: Number of sources/URLs searched or fetched
+        sources_failed: List of source domains that failed (timeout, 404, error)
+        candidates_found: Total candidate items evaluated
+        published: Number of items published this run
+        archived: Number of items archived this run
+        rejections: Breakdown of rejected candidates, e.g. {"duplicate": 3, "low_score": 2, "dead_url": 1, "expired": 1}
+        events_next_14d: Count of published events happening in the next 14 days
+        notes: Optional free-text notes about the run (unusual findings, recommendations)
+
+    Returns:
+        Success status
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    item = {
+        "pk": "PIPELINE_RUN",
+        "sk": f"{pipeline}#{now}",
+        "pipeline": pipeline,
+        "timestamp": now,
+        "sources_searched": sources_searched,
+        "sources_failed": sources_failed if sources_failed else [],
+        "candidates_found": candidates_found,
+        "published": published,
+        "archived": archived,
+        "rejections": rejections if rejections else {},
+        "events_next_14d": events_next_14d,
+        "notes": notes or "",
+    }
+
+    table = _get_table()
+    table.put_item(Item=item)
+
+    return {"success": True, "timestamp": now}

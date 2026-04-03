@@ -38,7 +38,8 @@ For each area card in the current set:
 
 1. Call **fetch_content(url)** on the linked URL. Is it still live? Has the content changed?
 2. Run a quick **search("{area_name} nyt 2026")** to check for major news.
-3. Flag each card as:
+3. Check the Known Closed / Inactive list in BASE_SYSTEM — if an area card links to a closed business, flag it immediately.
+4. Flag each card as:
    - **unchanged** — No updates needed
    - **minor_update** — Small factual change (hours, new detail)
    - **major_update** — Significant change (new attraction, closure, rebranding)
@@ -48,9 +49,9 @@ For each area card in the current set:
 
 Check if any place deserves a new area card:
 
-1. **Frequency in posts.** If ${oplevelser_last_90d} contains 3+ posts referencing a place that doesn't have its own card, it's a candidate. Example: if Vorupør keeps appearing, it might deserve its own card.
+1. **Frequency in posts.** If ${oplevelser_last_90d} contains 3+ posts referencing a place that doesn't have its own card, it's a candidate.
 
-2. **Search for new attractions:**
+2. **Search for new attractions.** Use Tier 1 and Tier 2 sources first:
    ```
    "ny attraktion Thy 2026"
    "åbner Thisted Mors Agger 2026"
@@ -70,7 +71,7 @@ For cards flagged as minor_update or major_update:
 3. All translations (da, en, de) must be updated together
 
 For new area candidates:
-- New cards are created by the site owner, not auto-published. Report your recommendations in the summary.
+- New cards are created by the site owner, not auto-published. Report your recommendations in the run summary notes.
 
 ### Step 5: Verify Distances
 
@@ -83,21 +84,29 @@ For any updated area card, verify driving distances. Known verified distances:
 | Thisted | 38 km | ~35 min |
 | Hanstholm | 51 km | ~45 min |
 | Nykøbing Mors (Jesperhus) | ~55 km | ~45 min |
+| Thyborøn | ~15 min by ferry | Check ferry status |
 
 Never round driving times down. "~35 min" not "nearby".
 
-### Step 6: Summary
+### Step 6: Save Run Summary
 
-Report:
-- Audit results for each existing card (unchanged/updated/broken)
-- What was updated and why
-- Any new area card recommendations (with reasoning)
-- Any broken links found
+As your LAST action, call **save_run_summary()** with:
+
+- **pipeline**: "omraadet"
+- **sources_searched**: total URLs fetched during the audit
+- **sources_failed**: list of domains that returned errors (especially broken area card links)
+- **candidates_found**: number of potential new area cards considered
+- **published**: number of area cards updated (via update_area)
+- **archived**: 0 (areas are not archived)
+- **rejections**: breakdown if any new candidates were rejected, e.g. `{"too_far": 1, "too_niche": 1}`
+- **events_next_14d**: 0 (not applicable for this pipeline)
+- **notes**: audit results for each card (unchanged/updated/broken), any new area card recommendations with reasoning, any closed businesses discovered
 
 **Writing guidelines for area cards:**
 - Descriptions should be evergreen. Don't reference specific dates or events.
 - Be opinionated: "Perfekt familiedagstur" is better than "Kan besøges med familien."
 - Include the practical hook: what makes someone actually go there?
+- Include per-category practical details where relevant (see BASE_SYSTEM).
 - All three languages (da, en, de) must be included.
 
 ## Guardrails
@@ -107,3 +116,4 @@ Report:
 - **Don't update the same card twice in a month** unless something significant changed.
 - **Distance accuracy.** Never round down. Use "~35 min (39 km)" format.
 - **Prefer stable URLs.** Homepage links over deep links unless the deep link is stable.
+- **Always call save_run_summary** as your last action, even if no changes were made.

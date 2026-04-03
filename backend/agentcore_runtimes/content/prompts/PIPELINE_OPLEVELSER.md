@@ -30,7 +30,7 @@ Call **list_published_posts()** first. Review every published post:
 
 ### Step 2: Search for New Content
 
-Run 8–12 searches across three modes:
+Run 8–12 searches across three modes. Prioritize Tier 1 and Tier 2 sources.
 
 **Mode A — Time-scoped event discovery**
 
@@ -44,12 +44,13 @@ Search for events in the next 2–6 weeks:
 
 **Mode B — Source crawl**
 
-Use fetch_content on 4–6 source pages to scan for new content:
-- visit-nordvestkysten.com (events section)
-- nationalparkthy.dk (activities)
-- jesperhus.dk (seasonal news)
-- coldhawaiisurfcamp.com
-- gladzoo.dk
+Use fetch_content on 4–6 source pages, starting with Tier 1:
+- aggerbooking.dk/oplevelser/det-sker/ (Tier 1)
+- aggerdarling.dk (Tier 1)
+- thy360.dk/kalender (Tier 2)
+- nationalparkthy.dk/om-os/nyheder/ (Tier 2)
+- visitthy.com/thy/experiences/events-thy (Tier 2)
+- Additional sources as relevant to season
 
 **Mode C — Interest-based discovery**
 
@@ -61,9 +62,9 @@ Autumn: "østerssafari Limfjorden 2026", "Cold Hawaii Games program"
 Winter: "julemarked Thisted 2026", "vinterfiskeri Limfjorden"
 ```
 
-### Step 3: Evaluate
+### Step 3: Evaluate & Score
 
-For each potential item, score on five criteria (1–5 each):
+For each potential item, score on six criteria (1–5 each, max 30):
 
 | Criterion | 5 (best) | 1 (worst) |
 |-----------|----------|-----------|
@@ -72,17 +73,19 @@ For each potential item, score on five criteria (1–5 each):
 | **Timeliness** | Happening in next 2–4 weeks | Already happened or 6+ months away |
 | **Uniqueness** | Nothing similar in published posts | We already cover this |
 | **Content quality** | Rich details, good source | Thin info, weak source |
+| **Source tier** | Tier 1 source | Tier 3–4 source |
 
-**Minimum score to publish: 15/25**
+**Minimum score to publish: 18/30**
 
 Also reject items that:
-- Duplicate something in ${published_last_30d}
+- Duplicate something in ${published_last_30d} (see dedup rules in BASE_SYSTEM)
 - Have no verifiable source URL
 - Are primarily advertising
+- Fall outside the hard filtering rules (past events, >60 days out, >120 km, closed businesses)
 
 ### Step 4: Publish
 
-For each item scoring 15+:
+For each item scoring 18+, in order of score (highest first):
 
 1. Call **validate_url(url)** on the source URL
 2. Call **create_post()** with:
@@ -90,21 +93,28 @@ For each item scoring 15+:
    - **tag_key**: one of event, guide, activity, openNow, seasonBest, kidFriendly, natureGem, localFavorite, culturalHistory, bigEvent
    - **url**: the verified source URL
    - **emoji**: pick an appropriate emoji (see BASE_SYSTEM)
-   - **sort_order**: lower numbers appear first — put the most compelling items first
+   - **sort_order**: lower numbers appear first — put the highest-scoring items first
    - **translations**: all three languages (da, en, de) with title, excerpt, date
 
 **Writing guidelines:**
 - Titles should be news-like: "Danish Open Windsurf: Wave i Klitmøller" not "Windsurfing i Thy"
 - Excerpts answer "why should I care?" with one concrete detail
+- Include the per-category practical details (see BASE_SYSTEM)
 - Dates are human-readable: "23–25. maj 2026" not ISO format
 
-### Step 5: Summary
+### Step 5: Save Run Summary
 
-After publishing, report what you did:
-- How many searches you ran
-- How many candidates you found and evaluated
-- How many posts you published (with titles)
-- Any notable sources that were down or had no new content
+As your LAST action, call **save_run_summary()** with:
+
+- **pipeline**: "oplevelser"
+- **sources_searched**: total number of URLs you searched or fetched
+- **sources_failed**: list of domains that returned errors (e.g. ["aggerbio.dk", "thy360.dk"])
+- **candidates_found**: total items you evaluated in Step 3
+- **published**: how many posts you created
+- **archived**: how many posts you archived in Step 1
+- **rejections**: breakdown by reason, e.g. `{"duplicate": 3, "low_score": 2, "dead_url": 1, "expired": 1}`
+- **events_next_14d**: count of ALL published events (old + new) happening within 14 days of ${current_date}
+- **notes**: anything unusual — sources that seem permanently down, content gaps, seasonal business status changes
 
 ## Guardrails
 
@@ -112,3 +122,4 @@ After publishing, report what you did:
 - **0 posts is fine.** Don't pad with weak content.
 - **Max 3 fetches per domain** to avoid hammering sources.
 - **Always validate URLs** before calling create_post.
+- **Always call save_run_summary** as your last action, even if you published 0 items.

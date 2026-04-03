@@ -18,7 +18,7 @@ from config import ConfigService
 from prompt_service import PromptService
 from tools.web_search import search
 from tools.web_fetch import fetch_content
-from tools.content_db import list_published_posts, list_published_areas, create_post, archive_post, update_area
+from tools.content_db import list_published_posts, list_published_areas, create_post, archive_post, update_area, save_run_summary
 from tools.url_validator import validate_url
 
 logging.basicConfig(
@@ -43,7 +43,7 @@ bedrock_model = BedrockModel(
     ),
 )
 
-TOOLS = [search, fetch_content, list_published_posts, list_published_areas, create_post, archive_post, update_area, validate_url]
+TOOLS = [search, fetch_content, list_published_posts, list_published_areas, create_post, archive_post, update_area, validate_url, save_run_summary]
 
 
 @app.entrypoint
