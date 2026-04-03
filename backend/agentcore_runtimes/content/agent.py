@@ -169,7 +169,7 @@ async def invoke(payload, context):
         system_prompt=system_prompt,
         tools=TOOLS,
         hooks=[stats],
-        conversation_manager=SlidingWindowConversationManager(window_size=20),
+        conversation_manager=SlidingWindowConversationManager(window_size=10),
     )
 
     user_message = (
