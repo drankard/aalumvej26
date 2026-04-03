@@ -27,6 +27,10 @@ Parameters:
   DomainName:
     Type: String
     Default: aalumvej26.dk
+  AlertEmail:
+    Type: String
+    Default: david@graveyard.dk
+    Description: Email for content pipeline notifications and alarms
 
 Conditions:
   HasAgentCode: !Not [!Equals [!Ref ContentAgentCodeBucket, '']]
@@ -67,18 +71,6 @@ Resources:
                   - 'arn:aws:bedrock:*::foundation-model/*'
                   - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:*'
                   - 'arn:aws:bedrock:*:*:inference-profile/*'
-              - Sid: MarketplaceAccess
-                Effect: Allow
-                Action:
-                  - aws-marketplace:ViewSubscriptions
-                  - aws-marketplace:Subscribe
-                Resource: '*'
-              - Sid: BedrockPromptAccess
-                Effect: Allow
-                Action:
-                  - bedrock:GetPrompt
-                Resource:
-                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:prompt/*'
               - Sid: SSMAccess
                 Effect: Allow
                 Action:
@@ -128,9 +120,6 @@ Resources:
         AWS_REGION: !Ref AWS::Region
         TABLE_NAME: !Ref AppTable
         MODEL_ID_PARAM: /aalumvej26/ai/model-id
-        BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
-        OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
-        OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
         NOTIFIER_FUNCTION_ARN: !GetAtt ContentNotifierFunction.Arn
       LifecycleConfiguration:
         IdleRuntimeSessionTimeout: 300
@@ -203,9 +192,8 @@ Resources:
           TABLE_NAME: !Ref AppTable
           STAGE: !Ref Stage
           CONTENT_RUNTIME_ARN: !If [HasAgentCode, !GetAtt ContentAgentRuntime.AgentRuntimeArn, '']
-          BASE_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/base-system-arn}}'
-          OPLEVELSER_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/oplevelser-arn}}'
-          OMRAADET_PROMPT_ID: !Sub '{{resolve:ssm:/aalumvej26/prompts/omraadet-arn}}'
+          NOTIFIER_QUEUE_URL: !Ref ContentNotifierQueue
+          VALIDATOR_QUEUE_URL: !Ref ContentValidatorQueue
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AppTable
@@ -213,12 +201,28 @@ Resources:
             - Effect: Allow
               Action:
                 - bedrock-agentcore:InvokeAgentRuntime
-              Resource: '*'
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:GetPrompt
-              Resource: '*'
+              Resource: !If [HasAgentCode, !GetAtt ContentAgentRuntime.AgentRuntimeArn, '*']
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ContentNotifierQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ContentValidatorQueue.QueueName
+
+  ContentNotifierQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub aalumvej26-content-notifier-${Stage}
+      DelaySeconds: 1200
+      MessageRetentionPeriod: 86400
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ContentNotifierDLQ.Arn
+        maxReceiveCount: 3
+
+  ContentNotifierDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub aalumvej26-content-notifier-dlq-${Stage}
+      MessageRetentionPeriod: 1209600
 
   OplevelsSchedule:
     Type: AWS::Events::Rule
@@ -230,6 +234,8 @@ Resources:
         - Arn: !GetAtt ContentAgentInvokerFunction.Arn
           Id: OplevelsTarget
           Input: '{"pipeline": "oplevelser"}'
+          DeadLetterConfig:
+            Arn: !GetAtt ContentNotifierDLQ.Arn
 
   OplevelsSchedulePermission:
     Type: AWS::Lambda::Permission
@@ -249,6 +255,8 @@ Resources:
         - Arn: !GetAtt ContentAgentInvokerFunction.Arn
           Id: OmraadetTarget
           Input: '{"pipeline": "omraadet"}'
+          DeadLetterConfig:
+            Arn: !GetAtt ContentNotifierDLQ.Arn
 
   OmraadetSchedulePermission:
     Type: AWS::Lambda::Permission
@@ -269,6 +277,12 @@ Resources:
         Variables:
           TABLE_NAME: !Ref AppTable
           SNS_TOPIC_ARN: !Ref ContentSummaryTopic
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ContentNotifierQueue.Arn
+            BatchSize: 1
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref AppTable
@@ -278,6 +292,40 @@ Resources:
                 - sns:Publish
               Resource: !Ref ContentSummaryTopic
 
+
+  ContentValidatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub aalumvej26-content-validator-${Stage}
+      CodeUri: backend/lambdas/content_validator/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppTable
+          SNS_TOPIC_ARN: !Ref ContentSummaryTopic
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ContentValidatorQueue.Arn
+            BatchSize: 1
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AppTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref ContentSummaryTopic
+
+  ContentValidatorQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub aalumvej26-content-validator-${Stage}
+      DelaySeconds: 1500
+      MessageRetentionPeriod: 86400
+      VisibilityTimeout: 180
 
   ContentSummaryTopic:
     Type: AWS::SNS::Topic
@@ -290,7 +338,64 @@ Resources:
     Properties:
       TopicArn: !Ref ContentSummaryTopic
       Protocol: email
-      Endpoint: david@graveyard.dk
+      Endpoint: !Ref AlertEmail
+
+  InvokerErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aalumvej26-content-invoker-errors-${Stage}
+      AlarmDescription: Content invoker Lambda errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ContentAgentInvokerFunction
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ContentSummaryTopic
+
+  NotifierErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aalumvej26-content-notifier-errors-${Stage}
+      AlarmDescription: Content notifier Lambda errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ContentNotifierFunction
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ContentSummaryTopic
+
+  DLQMessageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aalumvej26-content-dlq-messages-${Stage}
+      AlarmDescription: Messages in content pipeline DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ContentNotifierDLQ.QueueName
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ContentSummaryTopic
 
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution

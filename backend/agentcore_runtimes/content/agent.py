@@ -4,7 +4,6 @@ Aalumvej26 Content Agent — AgentCore Runtime
 Stateless agent that discovers and writes content for the vacation rental site.
 Two pipelines: oplevelser (events/activities) and omraadet (area reference cards).
 Prompts composed from Bedrock Prompt Manager: BASE_SYSTEM + pipeline-specific prompt.
-Web search via DuckDuckGo (free, no API key).
 """
 import json
 import logging
@@ -16,15 +15,20 @@ from bedrock_agentcore import BedrockAgentCoreApp
 from botocore.config import Config as BotocoreConfig
 from strands import Agent
 from strands.models import BedrockModel
-from strands.hooks.events import AfterToolCallEvent, AfterInvocationEvent, BeforeModelCallEvent
+from strands.agent.conversation_manager.sliding_window_conversation_manager import SlidingWindowConversationManager
+from strands.hooks.events import AfterToolCallEvent, BeforeModelCallEvent
 from strands.hooks.registry import HookRegistry
 
 from config import ConfigService
 from prompt_service import PromptService
-from tools.web_search import search
-from tools.web_fetch import fetch_content
-from tools.content_db import list_published_posts, list_published_areas, create_post, archive_post, update_area, save_run_summary
+from tools.web_search import search, reset as reset_search
+from tools.web_fetch import fetch_content, reset as reset_fetch
+from tools.content_db import (
+    list_published_posts, list_published_areas, create_post,
+    archive_post, update_area, save_run_summary,
+)
 from tools.url_validator import validate_url
+from tools.source_registry import get_sources
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,27 +37,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 TOOL_CALL_SOFT_LIMIT = 20
-TOOL_CALL_HARD_LIMIT = 40
 
 
-class BudgetHookProvider:
-    """Tracks tool call count and nudges the agent to wrap up before hitting limits."""
+class RunStatsHook:
+    """Tracks tool call stats for the run summary fallback."""
 
     def __init__(self, pipeline: str):
         self.pipeline = pipeline
         self.tool_call_count = 0
-        self.warned = False
         self.published = 0
         self.archived = 0
         self.searches = 0
         self.fetches = 0
-        self.failed_sources = []
         self.summary_written = False
+        self._soft_warned = False
 
     def register_hooks(self, registry: HookRegistry):
         registry.add_callback(AfterToolCallEvent, self._on_after_tool_call)
         registry.add_callback(BeforeModelCallEvent, self._on_before_model_call)
-        registry.add_callback(AfterInvocationEvent, self._on_after_invocation)
 
     def _on_after_tool_call(self, event: AfterToolCallEvent):
         self.tool_call_count += 1
@@ -71,90 +72,55 @@ class BudgetHookProvider:
         elif tool_name == "save_run_summary":
             self.summary_written = True
 
-        if tool_name == "fetch_content" and hasattr(event, "result"):
-            result_str = str(event.result) if event.result else ""
-            if "FAILED:" in result_str:
-                parts = result_str.split("FAILED:")[1].strip().split(" ")[0]
-                self.failed_sources.append(parts)
-
     def _on_before_model_call(self, event: BeforeModelCallEvent):
-        if self.tool_call_count >= TOOL_CALL_HARD_LIMIT:
-            logger.warning(f"Hard limit reached ({self.tool_call_count} tool calls). Injecting stop instruction.")
-            event.agent.messages.append({
-                "role": "user",
-                "content": [{
-                    "text": (
-                        "URGENT: You have used all your tool call budget. "
-                        "Call save_run_summary NOW with what you have, then stop. "
-                        "Do NOT make any more search or fetch calls."
-                    )
-                }],
-            })
-        elif self.tool_call_count >= TOOL_CALL_SOFT_LIMIT and not self.warned:
-            self.warned = True
-            logger.info(f"Soft limit reached ({self.tool_call_count} tool calls). Nudging agent to wrap up.")
-            event.agent.messages.append({
-                "role": "user",
-                "content": [{
-                    "text": (
-                        f"BUDGET WARNING: You have used {self.tool_call_count} of {TOOL_CALL_HARD_LIMIT} tool calls. "
-                        "Stop searching now. Evaluate what you have, publish the best candidates, "
-                        "and call save_run_summary. You have limited tool calls remaining."
-                    )
-                }],
-            })
+        if self.tool_call_count >= TOOL_CALL_SOFT_LIMIT and not self._soft_warned:
+            self._soft_warned = True
+            logger.info(f"Soft limit reached ({self.tool_call_count} tool calls).")
 
-    def _on_after_invocation(self, event: AfterInvocationEvent):
-        """Guaranteed to fire when the agent finishes — write summary and notify if agent didn't."""
-        logger.info(
-            f"Agent invocation ended: tool_calls={self.tool_call_count}, "
-            f"published={self.published}, archived={self.archived}, "
-            f"summary_written={self.summary_written}"
-        )
-
+    def write_fallback_summary(self):
         if self.summary_written:
             return
-
-        logger.info("Agent did not write run summary — writing fallback from hook.")
+        logger.info("Writing fallback run summary.")
         try:
             table_name = os.environ.get("TABLE_NAME", "aalumvej26-prod")
             region = os.environ.get("AWS_REGION", "eu-west-1")
             table = boto3.resource("dynamodb", region_name=region).Table(table_name)
-
             now = datetime.now(timezone.utc).isoformat()
-            item = {
+            table.put_item(Item={
                 "pk": "PIPELINE_RUN",
                 "sk": f"{self.pipeline}#{now}",
                 "pipeline": self.pipeline,
                 "timestamp": now,
                 "sources_searched": self.searches + self.fetches,
-                "sources_failed": self.failed_sources if self.failed_sources else [],
+                "sources_failed": [],
                 "candidates_found": 0,
                 "published": self.published,
                 "archived": self.archived,
                 "rejections": {},
                 "events_next_14d": 0,
                 "notes": (
-                    f"Fallback summary from hook — agent ended before calling save_run_summary. "
-                    f"Total tool calls: {self.tool_call_count}. "
-                    f"Searches: {self.searches}, fetches: {self.fetches}."
+                    f"Fallback summary — agent ended before calling save_run_summary. "
+                    f"Tool calls: {self.tool_call_count}, searches: {self.searches}, "
+                    f"fetches: {self.fetches}."
                 ),
-            }
-            table.put_item(Item=item)
+            })
             logger.info(f"Fallback run summary written: pipeline={self.pipeline}")
-
-            notifier_arn = os.environ.get("NOTIFIER_FUNCTION_ARN", "")
-            if notifier_arn:
-                lambda_client = boto3.client("lambda")
-                lambda_client.invoke(
-                    FunctionName=notifier_arn,
-                    InvocationType="Event",
-                    Payload=json.dumps({"pipeline": self.pipeline}),
-                )
-                logger.info(f"Notifier invoked from fallback: pipeline={self.pipeline}")
-
         except Exception as e:
-            logger.error(f"Fallback summary/notify failed: {e}")
+            logger.error(f"Fallback summary write failed: {e}")
+
+    def invoke_notifier(self):
+        notifier_arn = os.environ.get("NOTIFIER_FUNCTION_ARN", "")
+        if not notifier_arn:
+            return
+        try:
+            boto3.client("lambda").invoke(
+                FunctionName=notifier_arn,
+                InvocationType="Event",
+                Payload=json.dumps({"pipeline": self.pipeline}),
+            )
+            logger.info(f"Notifier invoked: pipeline={self.pipeline}")
+        except Exception as e:
+            logger.warning(f"Failed to invoke notifier: {e}")
 
 
 app = BedrockAgentCoreApp()
@@ -170,68 +136,59 @@ bedrock_model = BedrockModel(
     max_tokens=65536,
     boto_client_config=BotocoreConfig(
         read_timeout=300,
-        retries={"max_attempts": 0},
+        retries={"max_attempts": 3, "mode": "adaptive"},
     ),
 )
 
-TOOLS = [search, fetch_content, list_published_posts, list_published_areas, create_post, archive_post, update_area, validate_url, save_run_summary]
+TOOLS = [
+    search, fetch_content, list_published_posts, list_published_areas,
+    create_post, archive_post, update_area, validate_url, save_run_summary,
+    get_sources,
+]
 
 
 @app.entrypoint
 async def invoke(payload, context):
-    """
-    AgentCore Runtime entrypoint.
+    pipeline = payload.get("pipeline", "oplevelser")
+    context_vars = payload.get("context_vars", {})
+    logger.info(f"Content agent invoked: pipeline={pipeline}")
 
-    Payload:
-        pipeline: "oplevelser" | "omraadet"
-        context_vars: optional dict of runtime context variables
-    """
+    reset_search()
+    reset_fetch()
+
+    system_prompt = prompt_service.build_system_prompt(
+        pipeline=pipeline,
+        context_vars=context_vars,
+    )
+
+    stats = RunStatsHook(pipeline)
+
+    agent = Agent(
+        name=config.agent_name,
+        model=bedrock_model,
+        system_prompt=system_prompt,
+        tools=TOOLS,
+        hooks=[stats],
+        conversation_manager=SlidingWindowConversationManager(window_size=20),
+    )
+
+    user_message = (
+        "Execute the content pipeline now. Be concise — no verbose reasoning. "
+        "Search, evaluate internally, publish with create_post, "
+        "then call save_run_summary as your last action."
+    )
+
     try:
-        pipeline = payload.get("pipeline", "oplevelser")
-        context_vars = payload.get("context_vars", {})
-
-        logger.info(f"Content agent invoked: pipeline={pipeline}")
-
-        system_prompt = prompt_service.build_system_prompt(
-            pipeline=pipeline,
-            base_prompt_arn=config.base_prompt_id,
-            pipeline_prompt_arn=(
-                config.oplevelser_prompt_id if pipeline == "oplevelser"
-                else config.omraadet_prompt_id
-            ),
-            context_vars=context_vars,
-        )
-
-        budget_hook = BudgetHookProvider(pipeline)
-
-        agent = Agent(
-            name=config.agent_name,
-            model=bedrock_model,
-            system_prompt=system_prompt,
-            tools=TOOLS,
-            hooks=[budget_hook],
-        )
-
-        user_message = (
-            "Execute the content pipeline now. Be concise — do not output verbose "
-            "reasoning or scoring tables. Search, evaluate internally, then publish. "
-            "Call create_post for each item and save_run_summary as your last action."
-        )
-
         stream = agent.stream_async(user_message)
         async for event in stream:
             yield event
-
-        logger.info(f"Content agent run complete: pipeline={pipeline}, tool_calls={budget_hook.tool_call_count}")
-
+        logger.info(f"Agent completed: pipeline={pipeline}, tools={stats.tool_call_count}")
     except Exception as e:
-        logger.error(f"Content agent failed: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"Agent failed: {type(e).__name__}: {e}", exc_info=True)
         yield {"type": "error", "message": f"Content agent failed: {str(e)}"}
-
     finally:
-        if not budget_hook.summary_written:
-            logger.info("Writing fallback run summary from entrypoint finally block.")
-            budget_hook._on_after_invocation(None)
+        stats.write_fallback_summary()
+        stats.invoke_notifier()
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def _current_season() -> str:
+def _current_season() -> str:  # duplicated in agentcore_runtimes/content/utils.py
     month = datetime.now().month
     if month in (3, 4, 5):
         return "spring"
@@ -130,6 +130,18 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     )
 
     logger.info(f"AgentCore invocation complete for pipeline={pipeline}")
+
+    sqs = boto3.client("sqs")
+    for queue_name, queue_url in [
+        ("notifier", os.environ.get("NOTIFIER_QUEUE_URL", "")),
+        ("validator", os.environ.get("VALIDATOR_QUEUE_URL", "")),
+    ]:
+        if queue_url:
+            sqs.send_message(
+                QueueUrl=queue_url,
+                MessageBody=json.dumps({"pipeline": pipeline}),
+            )
+            logger.info(f"{queue_name} queued (SQS delayed): pipeline={pipeline}")
 
     return {
         "statusCode": 200,

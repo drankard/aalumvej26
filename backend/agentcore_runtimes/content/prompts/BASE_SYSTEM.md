@@ -25,106 +25,13 @@ You have these tools. Use them directly — do not produce JSON output manually.
 
 ## Source Registry
 
-Sources are tiered by proximity and relevance. Always prefer higher tiers. Max 3 fetches per domain per run.
+Call **get_sources()** to get the full list of crawl sources organized by tier. Sources are tiered by proximity:
+- **Tier 1** — Agger local (highest priority). Always check these.
+- **Tier 2** — Thy regional. Check these after Tier 1.
+- **Tier 3** — Wider area (1-2 hr radius). Only for major events.
+- **Tier 4** — News/supplementary. Background only.
 
-### Tier 1 — Agger Local (highest priority, +3 source score)
-
-| Source | URL | Content Type | Notes |
-|--------|-----|-------------|-------|
-| 7770thy.dk | https://7770thy.dk/ | Community directory, events | Landsbyklyngen portal. `/find-alle/` for directory. |
-| Agger Bio | https://www.aggerbio.dk/ | Cinema program | `/upcomming_movies/` for schedule. |
-| Agger Booking events | https://aggerbooking.dk/oplevelser/det-sker/ | Local events | Heavy Agger, Lady Walk, Cold Hawaii Ultra. |
-| Agger Darling | https://www.aggerdarling.dk/ | Restaurant, concerts | `/menu` for menu. Live music. Year-round. |
-| Restaurant Tri | https://www.restaurant-tri.com/ | Fine dining | Michelin-starred. Check seasonal open/close. |
-| Signalmasten Agger | https://signalmasten-agger.dk/ | Restaurant | Year-round. |
-| Vesterhavshytten | https://www.vesterhavshytten-agger.dk/ | Grillbar, ice cream | Seasonal — verify open/closed status. |
-| Agger Surf & Events | https://www.aggersurfandevents.com/ | Surf, activities | Surf school, SUP, bar. Seasonal. |
-| Cold Hawaii Watersport | https://coldhawaiiwatersport.dk/ | Water activities | RIB boats, seal/dolphin safaris. Seasonal. |
-| Agger Bådelaug | https://agger-baadelaug.dk/ | Community events | De Sorte Huse: Krabbefest, Tørfiskedag, søndags-café. |
-| Agger Feriehuse | https://www.aggerferiehuse.dk/dk/kystbyen-agger | Town overview | Business listings. |
-| Agger Glamping | https://aggerglamping.dk/en/look-in-the-area/ | Area guide | Curated local guide. |
-| Agger Holidays | https://aggerholidays.dk/ | Area tips | `/spisesteder` and `/en/agger-and-other-experiences-thy`. |
-
-### Tier 2 — Thy Regional (+2 source score)
-
-| Source | URL | Content Type | Notes |
-|--------|-----|-------------|-------|
-| Thy360 calendar | https://www.thy360.dk/kalender | Events | Primary structured event source for Thy. |
-| KultuNaut | https://www.kultunaut.dk/ | Events by venue | Backend for Thy360. Filter to 7770 area. |
-| Nationalpark Thy news | https://nationalparkthy.dk/om-os/nyheder/ | Nature events | Seasonal programs, guided tours. |
-| Nationalparkbooking | https://nationalparkbooking.dk/ | Bookable experiences | Guided tours, lectures, nature courses. |
-| NP Thy activities | https://nationalparkthy.dk/oplev-nationalparken/aktiv-i-naturen | Activities | Hiking, cycling, birdwatching guides. |
-| VisitThy events | https://www.visitthy.com/thy/experiences/events-thy | Tourism events | Official tourism portal. |
-| VisitNordvestkysten | https://www.visitnordvestkysten.dk/ | Regional tourism | Agger-specific pages exist. |
-| Museum Thy | https://museumthy.dk/ | Exhibitions | Thisted Museum, Heltborg, etc. |
-| Kunsthal Thy | https://kunsthalthy.dk/ | Art exhibitions | Open Fri–Sun. Contemporary art. |
-| SMK Thy | https://www.smkthy.dk/ | Art exhibitions | National art in Doverodde. |
-| Filmklubben Thy | https://filmklubben-thy.dk/ | Film screenings | Art-house at Kino Thisted. |
-| Kino Thisted | https://www.kinothisted.dk/ | Cinema program | `/programbestil-billetter/alle-programlagte-film/` |
-| Hotel Thinggaard | https://hotelthinggaard.dk/ | Restaurant | Hurup Thy. Seasonal menus. |
-| Cold Hawaii Ultra | https://thyultra.dk/ | Trail race | Finishes in Agger. September. |
-
-### Tier 2b — Day-Trip Destinations (+1.5 source score)
-
-**Thyborøn** (ferry from Agger Tange, ~15 min):
-
-| Source | URL | Notes |
-|--------|-----|-------|
-| Thyborøn Turist | https://www.thyboron-turist.dk/ | `/sevaerdigheder/` for attractions. |
-| JyllandsAkvariet | https://jyllandsakvariet.dk/ | Touch pools, seal/oyster safaris. Year-round. |
-| Sea War Museum | https://www.seawarmuseum.dk/ | WW1 Jyllandsslaget museum. |
-
-**Hanstholm** (~45 min):
-
-| Source | URL | Notes |
-|--------|-----|-------|
-| Bunkermuseum | https://bunkermuseumhanstholm.dk/ | Largest WW2 fortification in Northern Europe. Typically closed Nov–Mar. |
-| Hanstholm Madbar | http://www.hanstholmmadbar.dk/ | Clifftop dining. Seasonal. |
-
-**Klitmøller / Cold Hawaii** (~40 min):
-
-| Source | URL | Notes |
-|--------|-----|-------|
-| Cold Hawaii Surf Camp | https://coldhawaiisurfcamp.com/ | Spot guides, surf conditions, courses. |
-
-**Other nearby**:
-
-| Source | URL | Notes |
-|--------|-----|-------|
-| Thy Whisky | https://www.thy-whisky.dk/ | Distillery tours ~200kr. Near Agger. |
-| VesterhavsCaminoen | https://vesterhavscaminoen.dk/ | Walking holidays Thyborøn–Vestervig. |
-
-### Tier 3 — Wider Area, 1–2 Hour Radius (+1 source score)
-
-Only surface major events or seasonal highlights. Don't crawl deeply — use tourism portal aggregates.
-
-| Source | URL | Notes |
-|--------|-----|-------|
-| VisitMors | https://www.visitmors.com/ | Mors island. ~45 min. |
-| Destination Limfjorden | https://www.destinationlimfjorden.com/ | Skive, Struer, Morsø. |
-| VisitHimmerland | https://www.visithimmerland.dk/ | Løgstør, Aggersborg. |
-| VisitLemvig | https://www.visitlemvig.dk/ | Lemvig, Bovbjerg Fyr. |
-| Jesperhus | https://www.jesperhus.dk/ | Major family attraction on Mors. |
-| Museum Mors | https://museummors.dk/ | Dueholm Kloster, fossil hunts. |
-| Dansk Skaldyrcenter | https://skaldyrcenteret.dk/ | Oyster/mussel experiences, Nykøbing Mors. |
-| Limfjordsmuseet | https://limfjordsmuseet.dk/ | Maritime museum, Løgstør. |
-| Bovbjerg Fyr | https://bovbjergfyr.dk/ | Red lighthouse, art, café. ~1 hr south. |
-
-### Tier 4 — News & Supplementary (+0.5 source score, background only)
-
-| Source | URL | Notes |
-|--------|-----|-------|
-| Vores Thy | https://vores-thy.dk/ | Local news. `/artikler` for latest. |
-| Thisted Kommune | https://www.thisted.dk/nyheder | Municipal announcements. |
-| Opdag Danmark | https://www.opdagdanmark.dk/en/guide/thy/ | National tourism, Thy section. |
-
-## Known Closed / Inactive — DO NOT RECOMMEND
-
-| Source | Status | Notes |
-|--------|--------|-------|
-| Agger Badehotel (agger-hotel.dk) | CLOSED | Sold, renovating. Monitor for reopening. |
-| Agger Is-Café | UNKNOWN | No web presence. Do not reference until verified. |
-| Kystcentret Thyborøn | CLOSED INDEFINITELY | "Lukket på ubestemt tid." Do not recommend. |
+Max 3 fetches per domain per run. The tool also lists known closed businesses — never recommend these.
 
 If you discover a source that has closed or is unreachable, note it in your run summary.
 

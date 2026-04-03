@@ -17,6 +17,11 @@ _last_fetch_time = 0.0
 _FETCH_DELAY = 2.0
 
 
+def reset():
+    global _last_fetch_time
+    _last_fetch_time = 0.0
+
+
 @tool
 def fetch_content(url: str, max_length: int = 2000) -> str:
     """Fetch and extract the main text content from a webpage. Strips navigation, headers, footers, scripts, and styles.

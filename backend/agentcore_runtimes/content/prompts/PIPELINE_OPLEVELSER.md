@@ -30,62 +30,31 @@ Call **list_published_posts()** first. Review every published post:
 
 ### Step 2: Search for New Content
 
-Run 8–12 searches across three modes. Prioritize Tier 1 and Tier 2 sources.
+1. Call **get_sources()** to get the source registry.
+2. Run 3–5 web searches for time-scoped events (next 2–6 weeks).
+3. Use **fetch_content** on 5–8 Tier 1 and Tier 2 source URLs directly.
+4. Optionally run 1–2 broader searches for underrepresented categories.
 
-**Mode A — Time-scoped event discovery**
+Prioritize fetch_content on known source URLs over search queries.
 
-Search for events in the next 2–6 weeks:
-```
-"events Thy maj 2026"
-"koncert Thisted juni 2026"
-"Cold Hawaii 2026 program"
-"hvad sker der Agger forår"
-```
+### Step 3: Evaluate (Pass/Fail Checklist)
 
-**Mode B — Source crawl**
+For each candidate, check ALL of the following. Reject if any check fails:
 
-Use fetch_content on 4–6 source pages, starting with Tier 1:
-- aggerbooking.dk/oplevelser/det-sker/ (Tier 1)
-- aggerdarling.dk (Tier 1)
-- thy360.dk/kalender (Tier 2)
-- nationalparkthy.dk/om-os/nyheder/ (Tier 2)
-- visitthy.com/thy/experiences/events-thy (Tier 2)
-- Additional sources as relevant to season
+- [ ] **Not a duplicate** — no existing published post covers the same event/topic
+- [ ] **Within range** — located within 60 min drive of Agger (or 120 km max)
+- [ ] **Timely** — happening within the next 60 days (or evergreen)
+- [ ] **Tourist-relevant** — a holidaymaker would actually do this
+- [ ] **Has concrete details** — dates, location, or opening hours from a fetched source
+- [ ] **Has a working URL** — validate_url returns valid
+- [ ] **Not on the closed list** — not a known closed/inactive business
+- [ ] **From Tier 1 or 2 source** — Tier 3 only for major events
 
-**Mode C — Interest-based discovery**
-
-2–3 broader queries based on season and underrepresented categories:
-```
-Spring: "trækfugle Agger Tange forår", "påske aktiviteter Thy børn"
-Summer: "surfkursus Klitmøller begynder", "fiskemarked Vorupør"
-Autumn: "østerssafari Limfjorden 2026", "Cold Hawaii Games program"
-Winter: "julemarked Thisted 2026", "vinterfiskeri Limfjorden"
-```
-
-### Step 3: Evaluate & Score
-
-For each potential item, score on six criteria (1–5 each, max 30):
-
-| Criterion | 5 (best) | 1 (worst) |
-|-----------|----------|-----------|
-| **Proximity** | Agger itself | 60+ min away |
-| **Tourist relevance** | Exactly what a holidaymaker wants | Only locals would care |
-| **Timeliness** | Happening in next 2–4 weeks | Already happened or 6+ months away |
-| **Uniqueness** | Nothing similar in published posts | We already cover this |
-| **Content quality** | Rich details, good source | Thin info, weak source |
-| **Source tier** | Tier 1 source | Tier 3–4 source |
-
-**Minimum score to publish: 18/30**
-
-Also reject items that:
-- Duplicate something in ${published_last_30d} (see dedup rules in BASE_SYSTEM)
-- Have no verifiable source URL
-- Are primarily advertising
-- Fall outside the hard filtering rules (past events, >60 days out, >120 km, closed businesses)
+Publish all items that pass. Reject the rest with a brief reason.
 
 ### Step 4: Publish
 
-For each item scoring 18+, in order of score (highest first):
+For each passing item, best candidates first:
 
 1. Call **validate_url(url)** on the source URL
 2. Call **create_post()** with:

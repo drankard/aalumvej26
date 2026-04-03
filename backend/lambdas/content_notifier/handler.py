@@ -174,8 +174,16 @@ def _format_notification(
     return subject, body
 
 
+def _extract_pipeline(event: dict[str, Any]) -> str:
+    """Extract pipeline name from direct invoke or SQS event."""
+    if "Records" in event:
+        body = json.loads(event["Records"][0]["body"])
+        return body.get("pipeline", "oplevelser")
+    return event.get("pipeline", "oplevelser")
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    pipeline = event.get("pipeline", "oplevelser")
+    pipeline = _extract_pipeline(event)
     logger.info(f"Content notifier triggered: pipeline={pipeline}")
 
     table_name = os.environ["TABLE_NAME"]

@@ -19,10 +19,6 @@ class ConfigService:
         self.model_id_param = os.environ.get("MODEL_ID_PARAM")
         self.model_id = os.environ.get("MODEL_ID")
 
-        self.base_prompt_id = os.environ.get("BASE_PROMPT_ID")
-        self.oplevelser_prompt_id = os.environ.get("OPLEVELSER_PROMPT_ID")
-        self.omraadet_prompt_id = os.environ.get("OMRAADET_PROMPT_ID")
-
     def validate(self) -> None:
         if not self.model_id_param and not self.model_id:
             raise ValueError("Set MODEL_ID_PARAM or MODEL_ID")

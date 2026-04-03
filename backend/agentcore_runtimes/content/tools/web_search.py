@@ -13,6 +13,12 @@ _consecutive_failures = 0
 _MAX_CONSECUTIVE_FAILURES = 5
 
 
+def reset():
+    global _last_search_time, _consecutive_failures
+    _last_search_time = 0.0
+    _consecutive_failures = 0
+
+
 @tool
 def search(query: str, max_results: int = 5, region: str = "dk-da") -> str:
     """Search the web using DuckDuckGo. Returns results with titles, URLs, and snippets.

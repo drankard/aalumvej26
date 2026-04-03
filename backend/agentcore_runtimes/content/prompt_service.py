@@ -1,69 +1,51 @@
 """Prompt service for aalumvej26 content agent.
 
-Fetches prompts from Bedrock Prompt Manager and composes system prompts.
+Loads prompts from local .md files (packaged with the runtime) and composes
+system prompts with injected context variables.
 """
 import logging
+import os
 from datetime import datetime
 from string import Template
 
-import boto3
-from botocore.config import Config
+from utils import current_season
 
 logger = logging.getLogger(__name__)
 
-_boto_config = Config(
-    max_pool_connections=10,
-    retries={"max_attempts": 3, "mode": "adaptive"},
-)
-
-
-def _current_season() -> str:
-    month = datetime.now().month
-    if month in (3, 4, 5):
-        return "spring"
-    if month in (6, 7, 8):
-        return "summer"
-    if month in (9, 10, 11):
-        return "autumn"
-    return "winter"
+PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
 
 
 class PromptService:
     def __init__(self, region: str = "eu-west-1") -> None:
         self.region = region
-        self.bedrock = boto3.client("bedrock-agent", region_name=region, config=_boto_config)
 
-    def fetch_from_bedrock(self, prompt_arn: str) -> str:
-        response = self.bedrock.get_prompt(promptIdentifier=prompt_arn)
-        variants = response.get("variants", [])
-        content = (
-            variants[0]
-            .get("templateConfiguration", {})
-            .get("text", {})
-            .get("text", "")
-            if variants
-            else ""
-        )
-        if not content:
-            raise ValueError(f"Empty prompt content for {prompt_arn}")
-        logger.info(f"Fetched prompt from Bedrock: {prompt_arn}")
+    def _load_prompt(self, filename: str) -> str:
+        path = os.path.join(PROMPTS_DIR, filename)
+        with open(path) as f:
+            content = f.read()
+        if not content.strip():
+            raise ValueError(f"Empty prompt file: {path}")
+        logger.info(f"Loaded prompt from {filename}")
         return content
 
     def build_system_prompt(
         self,
         pipeline: str,
-        base_prompt_arn: str,
-        pipeline_prompt_arn: str,
         context_vars: dict | None = None,
+        **_kwargs,
     ) -> str:
-        base = self.fetch_from_bedrock(base_prompt_arn)
-        pipeline_text = self.fetch_from_bedrock(pipeline_prompt_arn)
+        base = self._load_prompt("BASE_SYSTEM.md")
+        pipeline_file = (
+            "PIPELINE_OPLEVELSER.md" if pipeline == "oplevelser"
+            else "PIPELINE_OMRAADET.md"
+        )
+        pipeline_text = self._load_prompt(pipeline_file)
 
         combined = base + "\n\n" + pipeline_text
 
         vars_to_inject = {
             "current_date": datetime.now().isoformat()[:10],
-            "season": _current_season(),
+            "season": current_season(),
         }
         if context_vars:
             vars_to_inject.update(context_vars)

@@ -2,8 +2,12 @@
 import json
 import logging
 import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any
 
 import boto3
+from pydantic import BaseModel, field_validator
 from strands import tool
 
 logger = logging.getLogger(__name__)
@@ -20,6 +24,60 @@ def _get_table():
     return _table
 
 
+def _query_all(table, **kwargs) -> list[dict]:
+    """Query with automatic pagination."""
+    items = []
+    resp = table.query(**kwargs)
+    items.extend(resp.get("Items", []))
+    while "LastEvaluatedKey" in resp:
+        resp = table.query(ExclusiveStartKey=resp["LastEvaluatedKey"], **kwargs)
+        items.extend(resp.get("Items", []))
+    return items
+
+
+VALID_CATEGORIES = {"natur", "kultur", "mad", "surf", "born"}
+VALID_TAGS = {
+    "event", "guide", "activity", "openNow", "seasonBest",
+    "kidFriendly", "natureGem", "localFavorite", "culturalHistory", "bigEvent",
+}
+REQUIRED_LANGUAGES = {"da", "en", "de"}
+
+
+class TranslationEntry(BaseModel):
+    title: str
+    excerpt: str
+    date: str
+
+
+class PostTranslations(BaseModel):
+    da: TranslationEntry
+    en: TranslationEntry
+    de: TranslationEntry
+
+
+class CreatePostInput(BaseModel):
+    category: str
+    tag_key: str
+    url: str
+    emoji: str
+    sort_order: int
+    translations: PostTranslations
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(cls, v: str) -> str:
+        if v not in VALID_CATEGORIES:
+            raise ValueError(f"Invalid category '{v}'. Must be one of: {VALID_CATEGORIES}")
+        return v
+
+    @field_validator("tag_key")
+    @classmethod
+    def validate_tag_key(cls, v: str) -> str:
+        if v not in VALID_TAGS:
+            raise ValueError(f"Invalid tag_key '{v}'. Must be one of: {VALID_TAGS}")
+        return v
+
+
 @tool
 def list_published_posts() -> dict:
     """List all currently published posts from DynamoDB.
@@ -29,14 +87,12 @@ def list_published_posts() -> dict:
         Use this to check for duplicates before creating new content.
     """
     table = _get_table()
-    resp = table.query(
+    items = _query_all(
+        table,
         KeyConditionExpression="pk = :pk",
         ExpressionAttributeValues={":pk": "POST"},
     )
-    posts = [
-        item for item in resp.get("Items", [])
-        if item.get("status") == "published"
-    ]
+    posts = [item for item in items if item.get("status") == "published"]
     return {"posts": posts, "count": len(posts)}
 
 
@@ -48,14 +104,12 @@ def list_published_areas() -> dict:
         List of published area cards with their translations and metadata.
     """
     table = _get_table()
-    resp = table.query(
+    items = _query_all(
+        table,
         KeyConditionExpression="pk = :pk",
         ExpressionAttributeValues={":pk": "AREA"},
     )
-    areas = [
-        item for item in resp.get("Items", [])
-        if item.get("status") == "published"
-    ]
+    areas = [item for item in items if item.get("status") == "published"]
     return {"areas": areas, "count": len(areas)}
 
 
@@ -76,13 +130,23 @@ def create_post(
         url: Source URL for the content
         emoji: Emoji for the card header
         sort_order: Display order (lower = first)
-        translations: Dict of language -> {title, excerpt, date}. Must include 'da'.
+        translations: Dict with keys 'da', 'en', 'de', each containing {title, excerpt, date}.
 
     Returns:
-        The created post with its generated ID
+        The created post with its generated ID, or error if validation fails.
     """
-    import uuid
-    from datetime import datetime, timezone
+    try:
+        validated = CreatePostInput(
+            category=category,
+            tag_key=tag_key,
+            url=url,
+            emoji=emoji,
+            sort_order=sort_order,
+            translations=translations,
+        )
+    except Exception as e:
+        logger.warning(f"Post validation failed: {e}")
+        return {"success": False, "error": f"Validation failed: {e}"}
 
     post_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -91,25 +155,25 @@ def create_post(
         "pk": "POST",
         "sk": f"POST#{post_id}",
         "id": post_id,
-        "category": category,
-        "tag_key": tag_key,
-        "url": url,
-        "emoji": emoji,
-        "sort_order": sort_order,
+        "category": validated.category,
+        "tag_key": validated.tag_key,
+        "url": validated.url,
+        "emoji": validated.emoji,
+        "sort_order": validated.sort_order,
         "status": "published",
         "relevance_score": 0,
-        "source_urls": [url],
-        "translations": translations,
+        "source_urls": [validated.url],
+        "translations": validated.translations.model_dump(),
         "created_at": now,
         "updated_at": now,
     }
 
     table = _get_table()
-    title = translations.get("da", {}).get("title", "")
-    logger.info(f"Writing post to DynamoDB: id={post_id}, category={category}, title={title}")
+    title = validated.translations.da.title
+    logger.info(f"Writing post: id={post_id}, category={validated.category}, title={title}")
     try:
         table.put_item(Item=item)
-        logger.info(f"Post written successfully: id={post_id}")
+        logger.info(f"Post written: id={post_id}")
     except Exception as e:
         logger.error(f"Failed to write post: id={post_id}, error={e}")
         return {"success": False, "error": str(e)}
@@ -121,7 +185,6 @@ def create_post(
 def archive_post(post_id: str) -> dict:
     """Archive a post by setting its status to 'archived'.
 
-    Use this for posts whose events have passed or content is no longer current.
     Archived posts are not shown on the main page but remain accessible via the archive.
 
     Args:
@@ -130,20 +193,25 @@ def archive_post(post_id: str) -> dict:
     Returns:
         Success status
     """
-    from datetime import datetime, timezone
-
     table = _get_table()
-    resp = table.get_item(Key={"pk": "POST", "sk": f"POST#{post_id}"})
-    item = resp.get("Item")
-    if not item:
+    now = datetime.now(timezone.utc).isoformat()
+
+    try:
+        resp = table.update_item(
+            Key={"pk": "POST", "sk": f"POST#{post_id}"},
+            UpdateExpression="SET #s = :s, updated_at = :u",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":s": "archived", ":u": now},
+            ConditionExpression="attribute_exists(pk)",
+            ReturnValues="ALL_NEW",
+        )
+        title = resp["Attributes"].get("translations", {}).get("da", {}).get("title", "")
+        return {"success": True, "post_id": post_id, "archived_title": title}
+    except table.meta.client.exceptions.ConditionalCheckFailedException:
         return {"success": False, "error": f"Post {post_id} not found"}
-
-    item["status"] = "archived"
-    item["updated_at"] = datetime.now(timezone.utc).isoformat()
-    table.put_item(Item=item)
-
-    title = item.get("translations", {}).get("da", {}).get("title", "")
-    return {"success": True, "post_id": post_id, "archived_title": title}
+    except Exception as e:
+        logger.error(f"Failed to archive post {post_id}: {e}")
+        return {"success": False, "error": str(e)}
 
 
 @tool
@@ -162,24 +230,39 @@ def update_area(
     Returns:
         Success status
     """
-    from datetime import datetime, timezone
-
     table = _get_table()
-    resp = table.get_item(Key={"pk": "AREA", "sk": f"AREA#{area_id}"})
-    item = resp.get("Item")
-    if not item:
-        return {"success": False, "error": f"Area {area_id} not found"}
+    now = datetime.now(timezone.utc).isoformat()
+
+    update_parts = ["updated_at = :u"]
+    attr_values: dict[str, Any] = {":u": now}
 
     if url:
-        item["url"] = url
-    if translations:
-        existing = item.get("translations", {})
-        existing.update(translations)
-        item["translations"] = existing
-    item["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_parts.append("url = :url")
+        attr_values[":url"] = url
 
-    table.put_item(Item=item)
-    return {"success": True, "area_id": area_id}
+    try:
+        if translations:
+            resp = table.get_item(Key={"pk": "AREA", "sk": f"AREA#{area_id}"})
+            item = resp.get("Item")
+            if not item:
+                return {"success": False, "error": f"Area {area_id} not found"}
+            existing = item.get("translations", {})
+            existing.update(translations)
+            update_parts.append("translations = :t")
+            attr_values[":t"] = existing
+
+        table.update_item(
+            Key={"pk": "AREA", "sk": f"AREA#{area_id}"},
+            UpdateExpression="SET " + ", ".join(update_parts),
+            ExpressionAttributeValues=attr_values,
+            ConditionExpression="attribute_exists(pk)",
+        )
+        return {"success": True, "area_id": area_id}
+    except table.meta.client.exceptions.ConditionalCheckFailedException:
+        return {"success": False, "error": f"Area {area_id} not found"}
+    except Exception as e:
+        logger.error(f"Failed to update area {area_id}: {e}")
+        return {"success": False, "error": str(e)}
 
 
 @tool
@@ -203,15 +286,13 @@ def save_run_summary(
         candidates_found: Total candidate items evaluated
         published: Number of items published this run
         archived: Number of items archived this run
-        rejections: Breakdown of rejected candidates, e.g. {"duplicate": 3, "low_score": 2, "dead_url": 1, "expired": 1}
+        rejections: Breakdown of rejected candidates, e.g. {"duplicate": 3, "low_score": 2}
         events_next_14d: Count of published events happening in the next 14 days
-        notes: Optional free-text notes about the run (unusual findings, recommendations)
+        notes: Optional free-text notes about the run
 
     Returns:
         Success status
     """
-    from datetime import datetime, timezone
-
     now = datetime.now(timezone.utc).isoformat()
 
     item = {
@@ -230,25 +311,12 @@ def save_run_summary(
     }
 
     table = _get_table()
-    logger.info(f"Writing run summary: pipeline={pipeline}, published={published}, archived={archived}")
+    logger.info(f"Writing run summary: pipeline={pipeline}, published={published}")
     try:
         table.put_item(Item=item)
-        logger.info(f"Run summary written: pipeline={pipeline}, timestamp={now}")
+        logger.info(f"Run summary written: pipeline={pipeline}")
     except Exception as e:
         logger.error(f"Failed to write run summary: {e}")
         return {"success": False, "error": str(e)}
-
-    notifier_arn = os.environ.get("NOTIFIER_FUNCTION_ARN", "")
-    if notifier_arn:
-        try:
-            lambda_client = boto3.client("lambda")
-            lambda_client.invoke(
-                FunctionName=notifier_arn,
-                InvocationType="Event",
-                Payload=json.dumps({"pipeline": pipeline}),
-            )
-            logger.info(f"Notifier invoked for pipeline={pipeline}")
-        except Exception as e:
-            logger.warning(f"Failed to invoke notifier: {e}")
 
     return {"success": True, "timestamp": now}
