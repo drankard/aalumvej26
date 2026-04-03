@@ -92,7 +92,19 @@ def list_published_posts() -> dict:
         KeyConditionExpression="pk = :pk",
         ExpressionAttributeValues={":pk": "POST"},
     )
-    posts = [item for item in items if item.get("status") == "published"]
+    posts = []
+    for item in items:
+        if item.get("status") != "published":
+            continue
+        da = item.get("translations", {}).get("da", {})
+        posts.append({
+            "id": item.get("id", ""),
+            "category": item.get("category", ""),
+            "tag_key": item.get("tag_key", ""),
+            "title": da.get("title", ""),
+            "date": da.get("date", ""),
+            "url": item.get("url", ""),
+        })
     return {"posts": posts, "count": len(posts)}
 
 
@@ -109,7 +121,17 @@ def list_published_areas() -> dict:
         KeyConditionExpression="pk = :pk",
         ExpressionAttributeValues={":pk": "AREA"},
     )
-    areas = [item for item in items if item.get("status") == "published"]
+    areas = []
+    for item in items:
+        if item.get("status") != "published":
+            continue
+        da = item.get("translations", {}).get("da", {})
+        areas.append({
+            "id": item.get("id", ""),
+            "name": da.get("name", ""),
+            "dist": da.get("dist", ""),
+            "url": item.get("url", ""),
+        })
     return {"areas": areas, "count": len(areas)}
 
 
