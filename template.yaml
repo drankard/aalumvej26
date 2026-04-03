@@ -211,7 +211,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub aalumvej26-content-notifier-${Stage}
-      DelaySeconds: 1200
+      DelaySeconds: 900
       MessageRetentionPeriod: 86400
       VisibilityTimeout: 60
       RedrivePolicy:
@@ -323,7 +323,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub aalumvej26-content-validator-${Stage}
-      DelaySeconds: 1500
+      DelaySeconds: 900
       MessageRetentionPeriod: 86400
       VisibilityTimeout: 180
 
