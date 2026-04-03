@@ -174,8 +174,10 @@ async def invoke(payload, context):
 
     user_message = (
         "Execute the content pipeline now. Be concise — no verbose reasoning. "
-        "Search, evaluate internally, publish with create_post, "
-        "then call save_run_summary as your last action."
+        "Search, evaluate internally, then publish. "
+        "IMPORTANT: Call create_post ONE AT A TIME — never batch multiple create_post "
+        "calls in a single response. After each create_post, wait for confirmation "
+        "before the next. Call save_run_summary as your last action."
     )
 
     try:
