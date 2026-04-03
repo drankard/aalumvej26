@@ -10,6 +10,9 @@ const C = {
 
 const BOOKING = "https://www.aggerferiehuse.dk/dk/agger/lille-feriehus-med-sjael-og-charme";
 
+declare global { interface Window { fbq?: (...args: unknown[]) => void; } }
+const trackContact = () => window.fbq?.("track", "Contact");
+
 
 const TAG_COLORS: Record<string, string> = {
   event: C.rust, guide: C.marram, openNow: "#4A9B7F", seasonBest: C.driftwood,
@@ -198,7 +201,7 @@ function App() {
               }}>{lang.label}</button>
             ))}
           </div>
-          <a href={BOOKING} target="_blank" rel="noopener noreferrer" style={{
+          <a href={BOOKING} target="_blank" rel="noopener noreferrer" onClick={trackContact} style={{
             fontFamily: "'DM Sans',sans-serif", fontSize: "11px", letterSpacing: "0.05em",
             textTransform: "uppercase", color: C.foam, background: C.rust,
             padding: "7px 14px", borderRadius: "5px", textDecoration: "none", fontWeight: 600,
@@ -304,7 +307,7 @@ function App() {
             <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "13px", color: C.storm, lineHeight: 1.7, marginBottom: "22px", opacity: 0.7 }}>
               {t("house.bookingNote")}
             </p>
-            <a href={BOOKING} target="_blank" rel="noopener noreferrer" style={{
+            <a href={BOOKING} target="_blank" rel="noopener noreferrer" onClick={trackContact} style={{
               display: "inline-flex", alignItems: "center", gap: "8px",
               background: C.deep, color: C.foam, padding: "14px 26px",
               borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "13px",
@@ -468,7 +471,7 @@ function App() {
         <div style={{ maxWidth: "1200px", margin: "36px auto 0", paddingTop: "18px", borderTop: "1px solid rgba(245,240,232,0.07)", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", display: "flex", justifyContent: "space-between" }}>
           <span>{t("footer.copyright")}</span>
           <span>{t("footer.bookingVia")}
-            <a href="https://www.aggerferiehuse.dk" target="_blank" rel="noopener noreferrer" style={{ color: C.rust, textDecoration: "none" }}>{"aggerferiehuse.dk"}</a>
+            <a href="https://www.aggerferiehuse.dk" target="_blank" rel="noopener noreferrer" onClick={trackContact} style={{ color: C.rust, textDecoration: "none" }}>{"aggerferiehuse.dk"}</a>
           </span>
         </div>
       </footer>
@@ -486,7 +489,7 @@ function App() {
           <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: C.rust, animation: "pulse 2s infinite" }} />
           <span style={{ fontFamily: "'DM Sans',sans-serif", color: C.foam, fontSize: "12px" }}>{t("sticky.text")}</span>
         </div>
-        <a href={BOOKING} target="_blank" rel="noopener noreferrer" style={{
+        <a href={BOOKING} target="_blank" rel="noopener noreferrer" onClick={trackContact} style={{
           background: C.rust, color: C.foam, padding: "8px 18px", borderRadius: "5px",
           fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 600,
           letterSpacing: "0.04em", textTransform: "uppercase", textDecoration: "none", whiteSpace: "nowrap",
