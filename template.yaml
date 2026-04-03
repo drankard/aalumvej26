@@ -201,7 +201,10 @@ Resources:
             - Effect: Allow
               Action:
                 - bedrock-agentcore:InvokeAgentRuntime
-              Resource: !If [HasAgentCode, !GetAtt ContentAgentRuntime.AgentRuntimeArn, '*']
+              Resource: !If
+                - HasAgentCode
+                - !Sub '${ContentAgentRuntime.AgentRuntimeArn}*'
+                - '*'
         - SQSSendMessagePolicy:
             QueueName: !GetAtt ContentNotifierQueue.QueueName
         - SQSSendMessagePolicy:
