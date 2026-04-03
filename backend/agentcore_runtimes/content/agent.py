@@ -29,8 +29,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TOOL_CALL_SOFT_LIMIT = 30
-TOOL_CALL_HARD_LIMIT = 50
+TOOL_CALL_SOFT_LIMIT = 20
+TOOL_CALL_HARD_LIMIT = 40
 
 
 class BudgetHookProvider:
@@ -133,9 +133,9 @@ async def invoke(payload, context):
         )
 
         user_message = (
-            "Execute the content pipeline now. Search for new content, evaluate it, "
-            "and use the content_db tools to publish high-quality items. "
-            "Return a structured JSON summary of your run."
+            "Execute the content pipeline now. Be concise — do not output verbose "
+            "reasoning or scoring tables. Search, evaluate internally, then publish. "
+            "Call create_post for each item and save_run_summary as your last action."
         )
 
         stream = agent.stream_async(user_message)
