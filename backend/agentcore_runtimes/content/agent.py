@@ -228,6 +228,11 @@ async def invoke(payload, context):
         logger.error(f"Content agent failed: {type(e).__name__}: {e}", exc_info=True)
         yield {"type": "error", "message": f"Content agent failed: {str(e)}"}
 
+    finally:
+        if not budget_hook.summary_written:
+            logger.info("Writing fallback run summary from entrypoint finally block.")
+            budget_hook._on_after_invocation(None)
+
 
 if __name__ == "__main__":
     logger.info(f"Starting {config.agent_name}")
