@@ -18,14 +18,14 @@ _FETCH_DELAY = 2.0
 
 
 @tool
-def fetch_content(url: str, max_length: int = 8000) -> str:
+def fetch_content(url: str, max_length: int = 2000) -> str:
     """Fetch and extract the main text content from a webpage. Strips navigation, headers, footers, scripts, and styles.
 
     Rate-limited to one request every 2 seconds to be polite to sources.
 
     Args:
         url: Full URL to fetch (must start with http:// or https://).
-        max_length: Maximum characters to return (default 8000).
+        max_length: Maximum characters to return (default 2000).
 
     Returns:
         Cleaned text content from the page, or a clear error message with HTTP status.

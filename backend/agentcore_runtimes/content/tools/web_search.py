@@ -14,7 +14,7 @@ _MAX_CONSECUTIVE_FAILURES = 5
 
 
 @tool
-def search(query: str, max_results: int = 10, region: str = "dk-da") -> str:
+def search(query: str, max_results: int = 5, region: str = "dk-da") -> str:
     """Search the web using DuckDuckGo. Returns results with titles, URLs, and snippets.
 
     Uses browser TLS fingerprint impersonation to avoid rate limiting.
@@ -22,7 +22,7 @@ def search(query: str, max_results: int = 10, region: str = "dk-da") -> str:
 
     Args:
         query: Search query string. Be specific for better results (2-5 words).
-        max_results: Maximum number of results to return (1-20, default 10).
+        max_results: Maximum number of results to return (1-20, default 5).
         region: Region/language code for localized results. Default 'dk-da' for Danish.
 
     Returns:
