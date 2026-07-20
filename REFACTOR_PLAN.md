@@ -38,8 +38,13 @@ Also verified (mid-2026 research):
    alerts if no `PIPELINE_RUN` row was written within 3h of schedule.
 2. **No expired content on the site.** Any post whose `event_end` has passed is archived
    on the next run — deterministically, by code, not by model judgment.
-3. **Zero rate-limit-degraded runs.** Search via SerpAPI free plan (250 Google.dk
-   searches/month vs ~20 needed; `gl=dk&hl=da`), key in SSM SecureString. No scraping.
+3. **Zero rate-limit-degraded runs.** No scraping, and no external search API in the
+   default build: discovery is registry-crawl only (tiers 1–2 include aggregators —
+   Thy360 calendar, KultuNaut, VisitThy — plus tier 4 news for new openings), which is
+   what rate-limited production runs have effectively been doing successfully anyway.
+   Web search is an optional pluggable sub-stage (`SEARCH_PROVIDER: none|serpapi|brave`;
+   SerpAPI free plan = 250 Google.dk searches/mo, `gl=dk&hl=da`, key in SSM) to enable
+   later only if run reports show thin candidate counts.
 4. **Validation before publish, not after.** All current validator checks (languages,
    fields, category/tag, URL reachability) run as a gate in the write stage.
 5. **Radical simplification.** Pipeline compute goes from 1 AgentCore runtime + 3
@@ -61,7 +66,8 @@ EventBridge (cron, unchanged)
          stage 2  crawl               — code (async httpx, registry tiers 1+2,
                                         per-domain politeness, 15s timeouts,
                                         trafilatura extraction, ~5k chars/page)
-                  + search            — code (SerpAPI, 3–5 queries, gl=dk&hl=da)
+                  + search (OPTIONAL) — code (off by default; pluggable SerpAPI/Brave
+                                        provider, 3–5 queries, gl=dk&hl=da)
          stage 3  extract candidates  — Claude call(s), structured output:
                                         {title, event_start/end ISO, location,
                                          source_url, category, details}
