@@ -1,0 +1,96 @@
+name: Harden deploy role (least privilege)
+
+# Staged migration of the live deploy role to the least-privilege policy in
+# bootstrap.yaml. Run the stages IN ORDER, with a successful Deploy run
+# between each to verify nothing broke:
+#
+#   1. apply-scoped    — add the scoped inline policy (WITHOUT the self-Deny).
+#                        Purely additive; fully reversible.
+#   2. detach-managed  — remove the five *FullAccess managed policies.
+#                        Reversible while the legacy sam-deploy policy exists.
+#   3. finalize        — delete the legacy sam-deploy inline policy, then
+#                        re-write the scoped policy WITH the NeverModifySelf
+#                        Deny. POINT OF NO RETURN: after this, CI cannot
+#                        modify its own IAM — only a human admin can.
+#   4. cleanup-dead-stack — delete the ROLLBACK_COMPLETE aalumvej26-bootstrap
+#                        stack corpse (safe anytime; it manages nothing).
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Hardening stage to run"
+        type: choice
+        options: [apply-scoped, detach-managed, finalize, cleanup-dead-stack]
+        required: true
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ROLE_NAME: aalumvej26-github-deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: apply-scoped
+        if: inputs.stage == 'apply-scoped'
+        run: |
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          python .github/scripts/extract_role_policy.py "$ACCOUNT" --without-deny > /tmp/policy.json
+          aws iam put-role-policy --role-name "$ROLE_NAME" \
+            --policy-name aalumvej26-scoped \
+            --policy-document file:///tmp/policy.json
+          echo "Scoped policy applied (without self-Deny). Now run Deploy to verify, then stage detach-managed."
+
+      - name: detach-managed
+        if: inputs.stage == 'detach-managed'
+        run: |
+          for p in AWSCloudFormationFullAccess AmazonS3FullAccess AmazonDynamoDBFullAccess AWSLambda_FullAccess AmazonAPIGatewayAdministrator; do
+            aws iam detach-role-policy --role-name "$ROLE_NAME" \
+              --policy-arn "arn:aws:iam::aws:policy/$p" 2>/dev/null \
+              && echo "detached $p" || echo "$p not attached (ok)"
+          done
+          echo "Managed policies detached. Now run Deploy to verify, then stage finalize."
+
+      - name: finalize
+        if: inputs.stage == 'finalize'
+        run: |
+          aws iam delete-role-policy --role-name "$ROLE_NAME" --policy-name sam-deploy 2>/dev/null \
+            && echo "deleted legacy sam-deploy policy" || echo "sam-deploy not present (ok)"
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          python .github/scripts/extract_role_policy.py "$ACCOUNT" > /tmp/policy.json
+          aws iam put-role-policy --role-name "$ROLE_NAME" \
+            --policy-name aalumvej26-scoped \
+            --policy-document file:///tmp/policy.json
+          echo "Self-Deny active: this role can no longer modify its own IAM."
+          echo "Verifying the deny works (this call MUST fail):"
+          if aws iam put-role-policy --role-name "$ROLE_NAME" \
+               --policy-name should-be-denied \
+               --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*"}]}' 2>/dev/null; then
+            echo "::error::Self-modification was NOT denied — investigate immediately"
+            exit 1
+          else
+            echo "Confirmed: self-modification denied. Hardening complete."
+          fi
+
+      - name: cleanup-dead-stack
+        if: inputs.stage == 'cleanup-dead-stack'
+        run: |
+          aws cloudformation delete-stack --stack-name aalumvej26-bootstrap
+          aws cloudformation wait stack-delete-complete --stack-name aalumvej26-bootstrap
+          echo "Dead aalumvej26-bootstrap stack deleted."
