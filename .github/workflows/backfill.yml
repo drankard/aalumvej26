@@ -1,14 +1,15 @@
 name: Backfill event dates (one-off)
 
-# Phase 0 of REFACTOR_PLAN.md — manually triggered, dry-run unless apply=true.
-# Run once with apply=false, read the printed plan in the job log, then re-run
-# with apply=true to execute it.
+# Phase 0 of REFACTOR_PLAN.md — runs INSIDE the content-pipeline Lambda so the
+# Bedrock call uses the function's own scoped role (the CI deploy role needs
+# only lambda:InvokeFunction). Dry-run unless apply=true; the plan also arrives
+# as an SNS email either way.
 
 on:
   workflow_dispatch:
     inputs:
       apply:
-        description: "Write changes (false = dry run, prints plan only)"
+        description: "Write changes (false = dry run, prints/emails plan only)"
         type: boolean
         default: false
 
@@ -19,25 +20,19 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-west-1
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install boto3
-        run: pip install boto3
-
-      - name: Run backfill
-        working-directory: backend
+      - name: Invoke backfill via pipeline Lambda
         run: |
-          if [ "${{ inputs.apply }}" = "true" ]; then
-            python -m scripts.backfill_event_dates --apply
-          else
-            python -m scripts.backfill_event_dates
-          fi
+          aws lambda invoke \
+            --function-name aalumvej26-content-pipeline-prod \
+            --cli-read-timeout 900 \
+            --payload '{"mode": "backfill", "apply": ${{ inputs.apply }}}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+          echo "=== Backfill result ==="
+          cat response.json
+          python3 -c "import json; r=json.load(open('response.json')); exit(1 if 'errorMessage' in r else 0)"
