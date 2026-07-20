@@ -80,10 +80,35 @@ Resources:
                   - events:PutTargets
                   - events:RemoveTargets
                 Resource: !Sub arn:aws:events:*:${AWS::AccountId}:rule/aalumvej26-*
+              # Needed until the release deploy has deleted the legacy
+              # AgentCore runtime; can be removed afterwards.
               - Effect: Allow
                 Action:
                   - bedrock-agentcore:*
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sqs:CreateQueue
+                  - sqs:DeleteQueue
+                  - sqs:GetQueueAttributes
+                  - sqs:SetQueueAttributes
+                  - sqs:TagQueue
+                  - sqs:UntagQueue
+                Resource: !Sub arn:aws:sqs:*:${AWS::AccountId}:aalumvej26-*
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:DescribeAlarms
+                Resource: !Sub arn:aws:cloudwatch:*:${AWS::AccountId}:alarm:aalumvej26-*
+              # Backfill workflow parses dates via Bedrock with this role.
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - 'arn:aws:bedrock:*::foundation-model/*'
+                  - 'arn:aws:bedrock:*:*:inference-profile/*'
+                  - !Sub 'arn:aws:bedrock:*:${AWS::AccountId}:*'
 
 Outputs:
   DeployRoleArn:

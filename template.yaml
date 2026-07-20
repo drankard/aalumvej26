@@ -12,14 +12,6 @@ Parameters:
   Stage:
     Type: String
     Default: prod
-  ContentAgentCodeBucket:
-    Type: String
-    Description: S3 bucket containing the content agent code zip
-    Default: ''
-  ContentAgentCodeKey:
-    Type: String
-    Description: S3 key of the content agent code zip
-    Default: ''
   CertificateArn:
     Type: String
     Description: ACM certificate ARN in us-east-1 for aalumvej26.dk (required for CloudFront)
@@ -33,101 +25,9 @@ Parameters:
     Description: Email for content pipeline notifications and alarms
 
 Conditions:
-  HasAgentCode: !Not [!Equals [!Ref ContentAgentCodeBucket, '']]
   HasCertificate: !Not [!Equals [!Ref CertificateArn, '']]
 
 Resources:
-  # AgentCore Execution Role (created only when agent code is provided)
-  ContentAgentExecutionRole:
-    Type: AWS::IAM::Role
-    Condition: HasAgentCode
-    Properties:
-      RoleName: !Sub aalumvej26-content-agent-role-${Stage}
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: bedrock-agentcore.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: ContentAgentPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:GetItem
-                  - dynamodb:PutItem
-                  - dynamodb:Query
-                  - dynamodb:DeleteItem
-                Resource: !GetAtt AppTable.Arn
-              - Sid: BedrockModelInvocation
-                Effect: Allow
-                Action:
-                  - bedrock:InvokeModel
-                  - bedrock:InvokeModelWithResponseStream
-                Resource:
-                  - 'arn:aws:bedrock:*::foundation-model/*'
-                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:*'
-                  - 'arn:aws:bedrock:*:*:inference-profile/*'
-              - Sid: SSMAccess
-                Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/aalumvej26/*'
-              - Sid: CloudWatchLogsGroup
-                Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:DescribeLogStreams
-                  - logs:DescribeLogGroups
-                Resource:
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*'
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
-              - Sid: CloudWatchLogsStream
-                Effect: Allow
-                Action:
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource:
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*'
-              - Sid: InvokeNotifier
-                Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: !GetAtt ContentNotifierFunction.Arn
-
-  # AgentCore Content Runtime (created only when agent code is provided)
-  ContentAgentRuntime:
-    Type: AWS::BedrockAgentCore::Runtime
-    Condition: HasAgentCode
-    Properties:
-      AgentRuntimeName: !Sub aalumvej26_content_agent_${Stage}
-      Description: Aalumvej26 content discovery and publishing agent
-      AgentRuntimeArtifact:
-        CodeConfiguration:
-          Code:
-            S3:
-              Bucket: !Ref ContentAgentCodeBucket
-              Prefix: !Ref ContentAgentCodeKey
-          EntryPoint:
-            - agent.py
-          Runtime: PYTHON_3_12
-      RoleArn: !GetAtt ContentAgentExecutionRole.Arn
-      EnvironmentVariables:
-        AGENT_NAME: Aalumvej26 Content Agent
-        AWS_REGION: !Ref AWS::Region
-        TABLE_NAME: !Ref AppTable
-        MODEL_ID_PARAM: /aalumvej26/ai/model-id
-        NOTIFIER_FUNCTION_ARN: !GetAtt ContentNotifierFunction.Arn
-      LifecycleConfiguration:
-        IdleRuntimeSessionTimeout: 300
-        MaxLifetime: 3600
-      NetworkConfiguration:
-        NetworkMode: PUBLIC
-      ProtocolConfiguration: HTTP
-
   AppTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -302,55 +202,6 @@ Resources:
       AlarmActions:
         - !Ref ContentSummaryTopic
 
-  # Content Agent Invoker Lambda
-  ContentAgentInvokerFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub aalumvej26-content-invoker-${Stage}
-      CodeUri: backend/lambdas/content_agent_invoker/
-      Handler: handler.lambda_handler
-      Timeout: 900
-      MemorySize: 256
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref AppTable
-          STAGE: !Ref Stage
-          CONTENT_RUNTIME_ARN: !If [HasAgentCode, !GetAtt ContentAgentRuntime.AgentRuntimeArn, '']
-          NOTIFIER_QUEUE_URL: !Ref ContentNotifierQueue
-          VALIDATOR_QUEUE_URL: !Ref ContentValidatorQueue
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AppTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock-agentcore:InvokeAgentRuntime
-              Resource: !If
-                - HasAgentCode
-                - !Sub '${ContentAgentRuntime.AgentRuntimeArn}*'
-                - '*'
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt ContentNotifierQueue.QueueName
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt ContentValidatorQueue.QueueName
-
-  ContentNotifierQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub aalumvej26-content-notifier-${Stage}
-      DelaySeconds: 900
-      MessageRetentionPeriod: 86400
-      VisibilityTimeout: 60
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt ContentNotifierDLQ.Arn
-        maxReceiveCount: 3
-
-  ContentNotifierDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub aalumvej26-content-notifier-dlq-${Stage}
-      MessageRetentionPeriod: 1209600
-
   OplevelsSchedule:
     Type: AWS::Events::Rule
     Properties:
@@ -393,67 +244,6 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt OmraadetSchedule.Arn
 
-  ContentNotifierFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub aalumvej26-content-notifier-${Stage}
-      CodeUri: backend/lambdas/content_notifier/
-      Handler: handler.lambda_handler
-      Timeout: 30
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref AppTable
-          SNS_TOPIC_ARN: !Ref ContentSummaryTopic
-      Events:
-        SQSTrigger:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt ContentNotifierQueue.Arn
-            BatchSize: 1
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref AppTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - sns:Publish
-              Resource: !Ref ContentSummaryTopic
-
-
-  ContentValidatorFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub aalumvej26-content-validator-${Stage}
-      CodeUri: backend/lambdas/content_validator/
-      Handler: handler.lambda_handler
-      Timeout: 120
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref AppTable
-          SNS_TOPIC_ARN: !Ref ContentSummaryTopic
-      Events:
-        SQSTrigger:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt ContentValidatorQueue.Arn
-            BatchSize: 1
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref AppTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - sns:Publish
-              Resource: !Ref ContentSummaryTopic
-
-  ContentValidatorQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub aalumvej26-content-validator-${Stage}
-      DelaySeconds: 900
-      MessageRetentionPeriod: 86400
-      VisibilityTimeout: 180
-
   ContentSummaryTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -467,44 +257,6 @@ Resources:
       Protocol: email
       Endpoint: !Ref AlertEmail
 
-  InvokerErrorAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub aalumvej26-content-invoker-errors-${Stage}
-      AlarmDescription: Content invoker Lambda errors
-      Namespace: AWS/Lambda
-      MetricName: Errors
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref ContentAgentInvokerFunction
-      Statistic: Sum
-      Period: 86400
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref ContentSummaryTopic
-
-  NotifierErrorAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub aalumvej26-content-notifier-errors-${Stage}
-      AlarmDescription: Content notifier Lambda errors
-      Namespace: AWS/Lambda
-      MetricName: Errors
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref ContentNotifierFunction
-      Statistic: Sum
-      Period: 86400
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref ContentSummaryTopic
-
   DLQMessageAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -514,7 +266,7 @@ Resources:
       MetricName: ApproximateNumberOfMessagesVisible
       Dimensions:
         - Name: QueueName
-          Value: !GetAtt ContentNotifierDLQ.QueueName
+          Value: !GetAtt PipelineDLQ.QueueName
       Statistic: Sum
       Period: 3600
       EvaluationPeriods: 1
@@ -600,9 +352,3 @@ Outputs:
   CloudFrontDistributionId:
     Condition: HasCertificate
     Value: !Ref CloudFrontDistribution
-  ContentAgentRuntimeArn:
-    Condition: HasAgentCode
-    Value: !GetAtt ContentAgentRuntime.AgentRuntimeArn
-  ContentAgentRuntimeId:
-    Condition: HasAgentCode
-    Value: !Ref ContentAgentRuntime
