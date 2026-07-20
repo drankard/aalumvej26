@@ -53,6 +53,7 @@ class RunState:
     # accumulators
     crawl_results: list[CrawlResult] = field(default_factory=list)
     candidates: list[CandidateEvent] = field(default_factory=list)
+    candidates_found: int = 0  # total extracted, before any filtering
     judgments: list[Judgment] = field(default_factory=list)
     published: list[dict] = field(default_factory=list)
     archived: list[dict] = field(default_factory=list)
@@ -268,6 +269,7 @@ def stage_extract(state: RunState, bedrock) -> None:
             state.notes.append(f"Candidate cap ({MAX_CANDIDATES}) reached — remaining pages not extracted.")
             state.candidates = state.candidates[:MAX_CANDIDATES]
             break
+    state.candidates_found = len(state.candidates)
 
 
 def filter_candidates(candidates: list[CandidateEvent], published: list[dict], today: date
@@ -338,22 +340,40 @@ def stage_judge(state: RunState, bedrock) -> None:
 
 
 def accepted_candidates(state: RunState) -> list[tuple[CandidateEvent, Judgment]]:
-    """Accepted candidates paired with judgments, best first, capped."""
+    """Accepted candidates paired with judgments, best first, capped.
+
+    Judgments match candidates by exact normalized title, falling back to the
+    closest fuzzy match (>0.9) so a lightly rephrased title never silently
+    drops an accepted candidate.
+    """
     by_title = {_norm_title(c.title): c for c in state.candidates}
+    matched: set[str] = set()
     pairs = []
     for j in sorted(state.judgments, key=lambda j: -j.score):
         if not j.accept:
             continue
-        c = by_title.get(_norm_title(j.title))
-        if c:
-            pairs.append((c, j))
+        norm = _norm_title(j.title)
+        key = norm if norm in by_title else None
+        if key is None:
+            best = max(
+                (k for k in by_title if k not in matched),
+                key=lambda k: difflib.SequenceMatcher(None, norm, k).ratio(),
+                default=None,
+            )
+            if best and difflib.SequenceMatcher(None, norm, best).ratio() > 0.9:
+                key = best
+        if key and key not in matched:
+            matched.add(key)
+            pairs.append((by_title[key], j))
     dropped = len(pairs) - MAX_PUBLISH_PER_RUN
     if dropped > 0:
         pairs = pairs[:MAX_PUBLISH_PER_RUN]
     return pairs
 
 
-def stage_write_publish(state: RunState, table, bedrock, url_checker=validate_url) -> None:
+def stage_write_publish(state: RunState, table, bedrock, url_checker=None) -> None:
+    if url_checker is None:
+        url_checker = validate_url  # late-bound so injection/patching works
     pairs = accepted_candidates(state)
     if len(pairs) < sum(1 for j in state.judgments if j.accept):
         state.notes.append(f"Publish cap ({MAX_PUBLISH_PER_RUN}) applied — lowest-scored accepted items dropped.")

@@ -6,7 +6,7 @@ Current date: ${current_date} · Season: ${season}
 
 ## Task
 
-For EVERY candidate below, return one judgment: accept true/false, score 1–10, a one-sentence reason citing the candidate's own details, and for rejections a rejection_key from: duplicate | out_of_range | expired | too_far_future | insufficient_detail | not_relevant.
+For EVERY candidate below, return one judgment: title (copied EXACTLY as given, character for character), accept true/false, score 1–10, a one-sentence reason citing the candidate's own details, and for rejections a rejection_key from: duplicate | out_of_range | expired | too_far_future | insufficient_detail | not_relevant.
 
 ## Geographic scope (drive time from Agger)
 

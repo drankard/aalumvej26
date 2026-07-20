@@ -67,7 +67,7 @@ def format_email(state: RunState) -> tuple[str, str]:
     lines.append(f"  Failed domains:    {len(failed)}"
                  + (f" ({', '.join(failed)})" if failed else ""))
     lines.append(f"  Searches run:      {state.searches_run} (provider: {state.search_used})")
-    lines.append(f"  Candidates found:  {len(state.candidates) + sum(state.rejections.values()) - sum(v for k, v in state.rejections.items() if k == 'dead_url')}")
+    lines.append(f"  Candidates found:  {state.candidates_found}")
     if state.rejections:
         parts = [f"{v} {k}" for k, v in sorted(state.rejections.items()) if v]
         lines.append(f"  Rejected:          {sum(state.rejections.values())} ({', '.join(parts)})")
@@ -113,7 +113,7 @@ def save_run_row(state: RunState, table) -> None:
         "timestamp": now,
         "sources_searched": len(state.crawl_results),
         "sources_failed": sorted({r.domain for r in state.crawl_results if not r.ok}),
-        "candidates_found": len(state.candidates),
+        "candidates_found": state.candidates_found,
         "published": len(state.published),
         "archived": len(state.archived),
         "rejections": state.rejections,

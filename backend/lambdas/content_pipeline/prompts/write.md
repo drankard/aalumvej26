@@ -6,7 +6,7 @@ Current date: ${current_date} · Season: ${season}
 
 ## Task
 
-For EVERY accepted candidate below, produce one post: category, tag_key, url (the candidate's source_url), emoji, event_start/event_end copied from the candidate, and translations for **da, en, de**.
+For EVERY accepted candidate below, produce one post: title_ref (the candidate's title copied EXACTLY as given), category, tag_key, url (the candidate's source_url), emoji, event_start/event_end copied from the candidate, and translations for **da, en, de**.
 
 ## Tag keys (exactly one)
 
