@@ -218,7 +218,34 @@ schedules, the entire RPC backend and frontend (untouched).
   second platform; a deterministic pipeline is also simply more reliable for a fixed
   weekly ETL than any agent loop, managed or not.
 
-## 6. Migration plan
+## 6. CI/CD (GitHub Actions) adjustments
+
+Current state: a single `deploy.yml` on push-to-main. Findings:
+
+- **Tests never run in CI.** The 31-test pytest suite (passes in 0.2s) is not wired
+  into any workflow, and deploys don't depend on it. Fixed now (independent of the
+  refactor): new `test.yml` runs backend pytest + frontend `tsc && vite build` on
+  every PR and push to main.
+- **Agent packaging must be removed with Phase 3:** deploy.yml steps "Package agent
+  runtime" (aarch64 zip via uv) and "Upload agent runtime to S3", plus the
+  `ContentAgentCodeBucket/Key` parameter-overrides — all obsolete once the AgentCore
+  resource leaves `template.yaml`. The workflow shrinks by ~20 lines.
+- **Gate deploy on tests** (Phase 2): make the deploy job depend on the test jobs
+  (`needs:`) or trigger deploy via `workflow_run` after Test succeeds on main. Also
+  add `workflow_dispatch` so a deploy can be triggered manually.
+- **New pipeline Lambda builds via standard `sam build`** on the ubuntu runner
+  (x86_64 manylinux wheels — note trafilatura pulls lxml, a binary wheel; works on
+  the runner's default target, no container build needed). No new workflow steps.
+- **Verify once in AWS (not visible from the repo):** the OIDC deploy role
+  (`AWS_DEPLOY_ROLE_ARN`) must be allowed to DELETE the
+  `AWS::BedrockAgentCore::Runtime` + named IAM role and CREATE the new
+  Lambda/EventBridge/alarm resources. If the role was written narrowly, the Phase 3
+  deploy fails loudly at changeset execution — check its policy first.
+- **One-time manual steps outside Actions:** create the SerpAPI key SSM SecureString
+  parameter; run the Phase 0 backfill script locally with the `graveyard-master`
+  profile (deliberately not a CI job — it's a data migration someone should watch).
+
+## 7. Migration plan
 
 1. **Phase 0 — stop the bleeding (independent of refactor):** one-off script backfills
    `event_start`/`event_end` and archives expired posts. Site is correct again.
