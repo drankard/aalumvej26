@@ -135,6 +135,52 @@ thresholds, dedup against the existing registry, reporting — is code, which is
 this version of "maintain a curated source list" will actually happen every run
 instead of surviving only as notes in an email.
 
+### Source-judge rubric (the instructions, specified now — precision is the product)
+
+Prompts live as versioned `.md` files per stage (same mechanism as today), each small
+and single-purpose. The source judge is the most precision-critical; its contract:
+
+**Evidence rule.** The judge never decides from a search snippet. The pipeline fetches
+the candidate domain's homepage (and one internal page if linked: /kalender, /events,
+/program) BEFORE the call; the judge sees extracted text only. No fetch → no judgment
+→ logged as `unreachable`, not added.
+
+**Accept — ALL must hold:**
+1. *Geography:* the source's subject matter lies within the existing zone table
+   (Core/Inner/Mid/Outer from BASE_SYSTEM; Occasional zone only for venues that host
+   major events). The zone table moves verbatim into this prompt.
+2. *Actionability:* publishes information a cottage guest in Agger can act on —
+   dated events, opening hours, bookable activities, menus/food, routes. A site
+   *about* the region with nothing actionable (pure history/blog archive) is reject.
+3. *Freshness:* visible signs of updates within ~6 months (dated posts, current-season
+   hours, upcoming events). Stale sites feed the pipeline nothing but risk.
+4. *Crawlability:* the fetched extraction actually contains the content (a JS-shell
+   site that extracts to boilerplate is `reject: not_crawlable`).
+
+**Hard reject (any one):** national/global portals and OTAs (visitdenmark-scale,
+booking.com-likes); SEO listicles/affiliate aggregators; social-media pages (FB/IG —
+not crawlable); competitor cottage-rental marketing sites; duplicates of an existing
+registry source (same organisation, different domain — judge receives the current
+registry list); domains on the closed list.
+
+**Tier assignment** uses the existing tier definitions verbatim (1 Agger-local,
+2 Thy-regional, 3 wider/major-events-only, 4 news/background).
+
+**Output schema (structured, enforced):**
+`{relevant: bool, confidence: high|medium|low, tier: 1-4, type, suggested_name,
+reasoning (1-2 sentences citing evidence from the fetched text), reject_reason?}`
+
+**Code-side policy around the judgment (not model-decided):**
+- `relevant + high` → insert as `probation`, crawled from next stage onward.
+- `relevant + medium/low` → NOT added; listed in the email as a suggestion for the
+  owner. Uncertainty never mutates the registry.
+- Max **2 auto-added sources per run** — keeps "curated" meaningful and crawl budget
+  bounded.
+- Registry cap: **45 non-retired sources.** At the cap, additions require the email to
+  propose a swap; nothing is silently evicted.
+- Every stage prompt ends with the same instruction: cite evidence, and when
+  uncertain, say so — the code treats uncertainty as "don't act, report".
+
 ### Schema changes (additive — frontend ignores unknown fields)
 - Posts: `event_start`, `event_end` (ISO dates, null = evergreen), `run_id`,
   `url_last_checked`. Display dates stay localized strings in `translations`.
