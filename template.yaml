@@ -178,6 +178,130 @@ Resources:
         AllowHeaders:
           - Content-Type
 
+  # Content Pipeline Lambda — deterministic batch pipeline (REFACTOR_PLAN.md)
+  ContentPipelineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub aalumvej26-content-pipeline-${Stage}
+      CodeUri: backend/lambdas/content_pipeline/
+      Handler: app.lambda_handler
+      Timeout: 900
+      MemorySize: 1024
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppTable
+          SNS_TOPIC_ARN: !Ref ContentSummaryTopic
+          MODEL_ID_PARAM: /aalumvej26/ai/model-id
+          SEARCH_PROVIDER: serpapi
+          SERPAPI_KEY_PARAM: /aalumvej26/search/serpapi-key
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppTable
+        - Statement:
+            - Sid: BedrockInvoke
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource:
+                - 'arn:aws:bedrock:*::foundation-model/*'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:*'
+                - 'arn:aws:bedrock:*:*:inference-profile/*'
+            - Sid: SSMRead
+              Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/aalumvej26/*'
+            - Sid: SNSPublish
+              Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref ContentSummaryTopic
+
+  # Dead-man canary — alerts when a scheduled run left no PIPELINE_RUN row
+  PipelineCanaryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub aalumvej26-pipeline-canary-${Stage}
+      CodeUri: backend/lambdas/pipeline_canary/
+      Handler: canary.lambda_handler
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppTable
+          SNS_TOPIC_ARN: !Ref ContentSummaryTopic
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AppTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref ContentSummaryTopic
+
+  OplevelsCanarySchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aalumvej26-oplevelser-canary-${Stage}
+      ScheduleExpression: 'cron(0 3 ? * SUN *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt PipelineCanaryFunction.Arn
+          Id: OplevelsCanaryTarget
+          Input: '{"pipeline": "oplevelser", "max_age_hours": 6}'
+
+  OplevelsCanaryPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PipelineCanaryFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt OplevelsCanarySchedule.Arn
+
+  OmraadetCanarySchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aalumvej26-omraadet-canary-${Stage}
+      ScheduleExpression: 'cron(0 9 ? * 2#1 *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt PipelineCanaryFunction.Arn
+          Id: OmraadetCanaryTarget
+          Input: '{"pipeline": "omraadet", "max_age_hours": 6}'
+
+  OmraadetCanaryPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PipelineCanaryFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt OmraadetCanarySchedule.Arn
+
+  PipelineDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub aalumvej26-pipeline-dlq-${Stage}
+      MessageRetentionPeriod: 1209600
+
+  PipelineErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aalumvej26-content-pipeline-errors-${Stage}
+      AlarmDescription: Content pipeline Lambda errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ContentPipelineFunction
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ContentSummaryTopic
+
   # Content Agent Invoker Lambda
   ContentAgentInvokerFunction:
     Type: AWS::Serverless::Function
@@ -234,16 +358,16 @@ Resources:
       ScheduleExpression: 'cron(0 0 ? * SUN *)'
       State: ENABLED
       Targets:
-        - Arn: !GetAtt ContentAgentInvokerFunction.Arn
+        - Arn: !GetAtt ContentPipelineFunction.Arn
           Id: OplevelsTarget
           Input: '{"pipeline": "oplevelser"}'
           DeadLetterConfig:
-            Arn: !GetAtt ContentNotifierDLQ.Arn
+            Arn: !GetAtt PipelineDLQ.Arn
 
   OplevelsSchedulePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref ContentAgentInvokerFunction
+      FunctionName: !Ref ContentPipelineFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt OplevelsSchedule.Arn
@@ -255,16 +379,16 @@ Resources:
       ScheduleExpression: 'cron(0 6 ? * 2#1 *)'
       State: ENABLED
       Targets:
-        - Arn: !GetAtt ContentAgentInvokerFunction.Arn
+        - Arn: !GetAtt ContentPipelineFunction.Arn
           Id: OmraadetTarget
           Input: '{"pipeline": "omraadet"}'
           DeadLetterConfig:
-            Arn: !GetAtt ContentNotifierDLQ.Arn
+            Arn: !GetAtt PipelineDLQ.Arn
 
   OmraadetSchedulePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref ContentAgentInvokerFunction
+      FunctionName: !Ref ContentPipelineFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt OmraadetSchedule.Arn
