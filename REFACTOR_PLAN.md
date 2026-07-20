@@ -241,9 +241,14 @@ Current state: a single `deploy.yml` on push-to-main. Findings:
   `AWS::BedrockAgentCore::Runtime` + named IAM role and CREATE the new
   Lambda/EventBridge/alarm resources. If the role was written narrowly, the Phase 3
   deploy fails loudly at changeset execution — check its policy first.
-- **One-time manual steps outside Actions:** create the SerpAPI key SSM SecureString
-  parameter; run the Phase 0 backfill script locally with the `graveyard-master`
-  profile (deliberately not a CI job — it's a data migration someone should watch).
+- **All AWS access goes through CI** (only the OIDC deploy role has credentials).
+  The Phase 0 backfill therefore runs as a `workflow_dispatch` workflow
+  (`backfill.yml`): trigger with `apply=false`, read the printed plan in the job
+  log, re-run with `apply=true`. Note: workflow_dispatch workflows only become
+  triggerable in the GitHub UI once the file is on the default branch — Phase 0
+  runs right after this branch merges.
+- **One-time manual step:** create the SerpAPI key SSM SecureString parameter
+  (console, or a tiny dispatch workflow with the key as a masked input).
 
 ## 7. Migration plan
 

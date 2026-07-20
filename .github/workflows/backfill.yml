@@ -1,0 +1,43 @@
+name: Backfill event dates (one-off)
+
+# Phase 0 of REFACTOR_PLAN.md — manually triggered, dry-run unless apply=true.
+# Run once with apply=false, read the printed plan in the job log, then re-run
+# with apply=true to execute it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Write changes (false = dry run, prints plan only)"
+        type: boolean
+        default: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install boto3
+        run: pip install boto3
+
+      - name: Run backfill
+        working-directory: backend
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            python -m scripts.backfill_event_dates --apply
+          else
+            python -m scripts.backfill_event_dates
+          fi

@@ -12,10 +12,14 @@ cannot tell whether an event has passed. This one-off script:
 
 Dry-run by default — prints the full plan without writing. Pass --apply to execute.
 
-Usage:
+Usage: triggered via the "Backfill event dates" workflow_dispatch GitHub Action
+(only CI has AWS credentials). Run with apply=false first, read the plan in the
+job log, then re-run with apply=true.
+
+Direct invocation (from an environment with AWS credentials):
     cd backend
-    AWS_PROFILE=graveyard-master python -m scripts.backfill_event_dates            # dry run
-    AWS_PROFILE=graveyard-master python -m scripts.backfill_event_dates --apply    # write
+    python -m scripts.backfill_event_dates            # dry run
+    python -m scripts.backfill_event_dates --apply    # write
 """
 from __future__ import annotations
 
