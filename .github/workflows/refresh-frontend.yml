@@ -1,0 +1,60 @@
+name: Refresh frontend (prerender)
+
+# Rebuilds and re-syncs ONLY the frontend so the static, crawlable pages
+# (sitemap.xml, llms.txt, /oplevelser/*, /omraadet/*, home SEO block) are
+# regenerated from the latest DynamoDB content produced by the content
+# pipeline. No SAM/infra deploy happens here.
+#
+# Scheduled to run shortly after each content-pipeline run:
+#   - oplevelser pipeline: cron(0 0 ? * SUN *)  -> refresh Sundays 02:00 UTC
+#   - omraadet pipeline:   cron(0 6 ? * 2#1 *)  -> refresh Mondays 08:00 UTC
+# (a non-first-Monday refresh is a harmless no-op re-sync). Also runnable on
+# demand right after a manual `Run content pipeline` dispatch.
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Get stack outputs
+        id: stack
+        run: |
+          API_URL=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text)
+          BUCKET=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucket`].OutputValue' --output text)
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend (fetches live content, prerenders static pages)
+        working-directory: frontend
+        run: |
+          npm ci
+          VITE_API_URL=${{ steps.stack.outputs.api_url }} npm run build
+
+      - name: Deploy frontend
+        run: aws s3 sync frontend/dist s3://${{ steps.stack.outputs.bucket }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DIST_ID=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null || true)
+          if [ -n "$DIST_ID" ] && [ "$DIST_ID" != "None" ]; then
+            aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+          fi
