@@ -78,15 +78,23 @@ jobs:
             --policy-name aalumvej26-scoped \
             --policy-document file:///tmp/policy.json
           echo "Self-Deny active: this role can no longer modify its own IAM."
-          echo "Verifying the deny works (this call MUST fail):"
-          if aws iam put-role-policy --role-name "$ROLE_NAME" \
-               --policy-name should-be-denied \
-               --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*"}]}' 2>/dev/null; then
-            echo "::error::Self-modification was NOT denied — investigate immediately"
-            exit 1
-          else
-            echo "Confirmed: self-modification denied. Hardening complete."
-          fi
+          echo "Verifying the deny works (propagation-aware; probe is HARMLESS if it lands):"
+          # Probe with an inert allow-nothing doc. If a probe slips through
+          # before the Deny propagates, delete it and retry until denied.
+          PROBE_DOC='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"iam:GetRole","Resource":"arn:aws:iam::123456789012:role/nonexistent-probe-target"}]}'
+          for i in $(seq 1 20); do
+            if aws iam put-role-policy --role-name "$ROLE_NAME" \
+                 --policy-name harden-probe --policy-document "$PROBE_DOC" 2>/dev/null; then
+              echo "attempt $i: deny not propagated yet — cleaning probe and retrying"
+              aws iam delete-role-policy --role-name "$ROLE_NAME" --policy-name harden-probe 2>/dev/null || true
+              sleep 15
+            else
+              echo "Confirmed: self-modification denied (attempt $i). Hardening complete."
+              exit 0
+            fi
+          done
+          echo "::error::Deny still not effective after 5 minutes — investigate"
+          exit 1
 
       - name: cleanup-dead-stack
         if: inputs.stage == 'cleanup-dead-stack'
