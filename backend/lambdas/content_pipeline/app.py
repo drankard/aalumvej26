@@ -37,11 +37,15 @@ def _model_id(session) -> str:
 
 
 def lambda_handler(event: dict, context) -> dict:
-    pipeline = event.get("pipeline", "oplevelser")
     session = boto3.Session()
     table = session.resource("dynamodb").Table(os.environ.get("TABLE_NAME", "aalumvej26-prod"))
     bedrock = session.client("bedrock-runtime")
     now = datetime.now(timezone.utc)
+
+    if event.get("mode") == "backfill":
+        return _run_backfill(event, session, table, bedrock, now)
+
+    pipeline = event.get("pipeline", "oplevelser")
 
     state = st.RunState(pipeline=pipeline, today=now.date(), season=_season(now.month),
                         model_id=_model_id(session))
@@ -101,6 +105,19 @@ def lambda_handler(event: dict, context) -> dict:
                 f"archived={len(state.archived)} new_sources={len(state.new_sources)}")
     return {"pipeline": pipeline, "run_id": state.run_id,
             "published": len(state.published), "archived": len(state.archived)}
+
+
+def _run_backfill(event: dict, session, table, bedrock, now) -> dict:
+    from backfill import format_report, run_backfill
+    apply = bool(event.get("apply", False))
+    result = run_backfill(table, bedrock, _model_id(session), now.date(), apply)
+    subject, body = format_report(result["plan"], apply, now.date())
+    logger.info(body)
+    topic = os.environ.get("SNS_TOPIC_ARN", "")
+    if topic:
+        session.client("sns").publish(TopicArn=topic, Subject=subject[:100], Message=body)
+    result.pop("plan")
+    return result
 
 
 def _report(state: st.RunState, table, session) -> None:

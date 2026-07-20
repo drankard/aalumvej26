@@ -36,15 +36,11 @@ class FakeTable:
     def update_item(self, Key, UpdateExpression, ExpressionAttributeValues,
                     ExpressionAttributeNames=None, **_):
         item = self.items[(Key["pk"], Key["sk"])]
-        vals = ExpressionAttributeValues
-        if ":s" in vals:
-            item["status"] = vals[":s"]
-        if ":t" in vals:
-            item["translations"] = vals[":t"]
-        if ":url" in vals:
-            item["url"] = vals[":url"]
-        if ":u" in vals:
-            item["updated_at"] = vals[":u"]
+        names = ExpressionAttributeNames or {}
+        assert UpdateExpression.startswith("SET ")
+        for part in UpdateExpression[4:].split(","):
+            attr, _, placeholder = part.strip().partition(" = ")
+            item[names.get(attr, attr)] = ExpressionAttributeValues[placeholder]
 
     def posts(self, status=None):
         out = [v for (p, _), v in self.items.items() if p == "POST"]
