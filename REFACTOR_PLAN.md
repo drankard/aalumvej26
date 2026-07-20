@@ -1,6 +1,7 @@
 # Content Pipeline Refactor Plan
 
-**Status:** Proposal — 2026-07-20
+**Status:** Implemented on this branch — 2026-07-20. See RELEASE.md for the
+release procedure.
 **Verdict in one sentence:** Replace the free-running AgentCore/Strands agent loop with a
 deterministic batch pipeline in a plain Lambda that uses Claude (Bedrock, structured
 outputs) for exactly three judgment steps — extract, evaluate, write — and delete
