@@ -38,22 +38,27 @@ Also verified (mid-2026 research):
    alerts if no `PIPELINE_RUN` row was written within 3h of schedule.
 2. **No expired content on the site.** Any post whose `event_end` has passed is archived
    on the next run — deterministically, by code, not by model judgment.
-3. **Zero rate-limit-degraded runs.** No scraping, and no external search API in the
-   default build: discovery is registry-crawl only (tiers 1–2 include aggregators —
-   Thy360 calendar, KultuNaut, VisitThy — plus tier 4 news for new openings), which is
-   what rate-limited production runs have effectively been doing successfully anyway.
-   Web search is an optional pluggable sub-stage (`SEARCH_PROVIDER: none|serpapi|brave`;
-   SerpAPI free plan = 250 Google.dk searches/mo, `gl=dk&hl=da`, key in SSM) to enable
-   later only if run reports show thin candidate counts.
-4. **Validation before publish, not after.** All current validator checks (languages,
+3. **Zero rate-limit-degraded runs.** Search is a core capability (it drives source
+   discovery — see goal 4) but runs on a real API, not scraping: SerpAPI free plan
+   (250 Google.dk searches/mo vs ~25 needed, `gl=dk&hl=da`), Brave
+   (`country=DK&search_lang=da`) as pluggable fallback, key(s) in SSM SecureString.
+   `ddgs`/DuckDuckGo scraping is removed — AWS egress IPs are fingerprinted and it is
+   the proven cause of crippled runs.
+4. **The source list maintains itself.** The registry moves from hardcoded Python
+   (`source_registry.py` — changeable only by deploy) to DynamoDB items the pipeline
+   owns end-to-end: discover new sources via search, judge relevance, add on probation,
+   track per-source health on every crawl, auto-retire dead ones, and report every
+   addition/retirement in the weekly email. This was the original reason the system
+   was made agentic; it is delivered here as deterministic lifecycle stages instead.
+5. **Validation before publish, not after.** All current validator checks (languages,
    fields, category/tag, URL reachability) run as a gate in the write stage.
-5. **Radical simplification.** Pipeline compute goes from 1 AgentCore runtime + 3
+6. **Radical simplification.** Pipeline compute goes from 1 AgentCore runtime + 3
    Lambdas + 3 SQS queues + snapshot-diff plumbing → **2 Lambdas** (pipeline + canary).
    Deps drop `strands-agents`, `bedrock-agentcore`, `ddgs`, `cachetools`. One deploy
    path (SAM only — no agent zip → S3 → AgentCore resource).
-6. **Testable per repo convention.** Every stage is a function with mockable edges
+7. **Testable per repo convention.** Every stage is a function with mockable edges
    (httpx, boto3 bedrock/dynamodb) — same philosophy as the existing test suite.
-7. **Cost neutral or better.** Infra ≈ $0 either way; token spend drops (no sliding-window
+8. **Cost neutral or better.** Infra ≈ $0 either way; token spend drops (no sliding-window
    re-thrash, no 30-turn loops). Search $0/mo at this volume.
 
 ## 3. Target architecture
@@ -61,27 +66,51 @@ Also verified (mid-2026 research):
 ```
 EventBridge (cron, unchanged)
    └─► content-pipeline Lambda  (900s timeout, ~1024MB, python3.12)
-         stage 0  load state          — code (DDB)
+         stage 0  load state          — code (DDB: posts + SOURCE registry items)
          stage 1  archive expired     — code (event_end < today)
-         stage 2  crawl               — code (async httpx, registry tiers 1+2,
-                                        per-domain politeness, 15s timeouts,
-                                        trafilatura extraction, ~5k chars/page)
-                  + search (OPTIONAL) — code (off by default; pluggable SerpAPI/Brave
-                                        provider, 3–5 queries, gl=dk&hl=da)
-         stage 3  extract candidates  — Claude call(s), structured output:
+         stage 2  crawl               — code (async httpx, active + probation
+                                        sources, per-domain politeness, 15s
+                                        timeouts, trafilatura, ~5k chars/page);
+                                        updates per-source health after every fetch
+         stage 3  discover sources    — code: 3–6 search queries (SerpAPI,
+                                        gl=dk&hl=da; seasonal + gap-driven) →
+                                        result domains not in registry →
+                                        1 Claude call: relevant local source?
+                                        (tier, type, why) → insert as
+                                        status=probation → crawled same run
+         stage 4  extract candidates  — Claude call(s), structured output:
                                         {title, event_start/end ISO, location,
                                          source_url, category, details}
-         stage 4  filter + judge      — code (dedup vs live posts, date window)
+         stage 5  filter + judge      — code (dedup vs live posts, date window)
                                         then 1 Claude call: accept/reject + reasons
-         stage 5  enrich (bounded)    — code: fetch detail URLs of accepted items
-         stage 6  write + publish     — Claude call → trilingual copy (schema-
+         stage 6  enrich (bounded)    — code: fetch detail URLs of accepted items
+         stage 7  write + publish     — Claude call → trilingual copy (schema-
                                         enforced), Pydantic + URL gate, put_item
-         stage 7  report              — code: email built from in-memory RunReport,
-                                        PIPELINE_RUN row w/ run_id, SNS publish
+         stage 8  source lifecycle    — code: promote probation→active after
+                                        first run yielding usable content;
+                                        failing→retired after 4 consecutive
+                                        failed runs (~1 month); never silent —
+                                        every transition goes in the report
+         stage 9  report              — code: email built from in-memory RunReport
+                                        (published/archived/rejected + NEW SOURCES /
+                                        RETIRED SOURCES sections), PIPELINE_RUN row
+                                        w/ run_id, SNS publish
    └─► pipeline-canary Lambda (Sun 03:00) — alert if no fresh PIPELINE_RUN row
 ```
 
-- Same skeleton runs `omraadet` monthly with an audit-stage config instead of discovery.
+### Source registry as data (the original agentic intent, delivered)
+
+`SOURCE` items in the existing single-table design (pk=`SOURCE`, sk=domain):
+`{name, url, tier, type, notes, status: probation|active|failing|retired|closed,
+consecutive_failures, last_success, last_checked, discovered_by: seed|search,
+added_at}`. Seeded once from today's `source_registry.py` (all marked
+`discovered_by: seed`, status active); `KNOWN_CLOSED` becomes `status: closed`.
+From then on the pipeline owns the list: search discovers, Claude judges, health
+tracking promotes/retires, the email reports every change. The owner can override
+any source by editing the item (or via a future RPC action) — no deploy needed.
+
+- Same skeleton runs `omraadet` monthly with an audit-stage config instead of
+  discovery; its "new attraction" searches feed the same source-discovery stage.
 - Time-budget safety: between stages the pipeline checks
   `context.get_remaining_time_in_millis()`; if low it skips to stage 7 and reports
   partial results honestly. The 15-min cliff cannot produce silence.
@@ -96,9 +125,15 @@ EU inference profile / Mantle ID stays a config value.
 
 ### What the LLM still decides (and nothing else)
 - Which crawled text fragments are real, relevant candidate events (extract).
+- Whether a newly found domain is a relevant local source worth tracking (source judge).
 - Whether each candidate meets the editorial bar (judge — the excellent rubric in
   `BASE_SYSTEM.md` moves here, verbatim where possible).
 - The trilingual copy (write — tone/translation/SEO rules move here).
+
+Everything mechanical about source curation — health counters, promotion/retirement
+thresholds, dedup against the existing registry, reporting — is code, which is why
+this version of "maintain a curated source list" will actually happen every run
+instead of surviving only as notes in an email.
 
 ### Schema changes (additive — frontend ignores unknown fields)
 - Posts: `event_start`, `event_end` (ISO dates, null = evergreen), `run_id`,
@@ -120,10 +155,10 @@ EU inference profile / Mantle ID stays a config value.
 | Agent zip → S3 packaging in `deploy.yml` | removed |
 | `SlidingWindowConversationManager`, `RunStatsHook`, fallback-summary hack | obsolete |
 
-Kept: prompts' editorial content (split into three stage prompts), source registry
-(becomes a plain data module), DynamoDB table + single-table design, SNS topic +
-subscription + alarms (retargeted), EventBridge schedules, the entire RPC backend and
-frontend (untouched).
+Kept: prompts' editorial content (split into stage prompts), source registry content
+(seeded into DynamoDB `SOURCE` items, then pipeline-maintained), DynamoDB table +
+single-table design, SNS topic + subscription + alarms (retargeted), EventBridge
+schedules, the entire RPC backend and frontend (untouched).
 
 ## 5. Non-chosen alternatives (for the record)
 
@@ -142,7 +177,8 @@ frontend (untouched).
 1. **Phase 0 — stop the bleeding (independent of refactor):** one-off script backfills
    `event_start`/`event_end` and archives expired posts. Site is correct again.
 2. **Phase 1 — build:** `backend/pipelines/content/` with stages as pure functions +
-   pytest per layer (mock httpx/bedrock/dynamodb at edges).
+   pytest per layer (mock httpx/bedrock/dynamodb at edges). Includes the registry
+   seed script (`source_registry.py` → `SOURCE` items).
 3. **Phase 2 — infra swap:** new pipeline + canary functions in `template.yaml`;
    retarget schedules and alarms; SerpAPI key to SSM.
 4. **Phase 3 — delete:** agentcore_runtimes/, invoker, notifier, validator, queues,
