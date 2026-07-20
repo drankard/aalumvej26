@@ -3,10 +3,28 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Run backend tests
+        working-directory: backend
+        run: python -m pytest tests/ -v
+
   deploy:
     runs-on: ubuntu-latest
+    needs: test
     permissions:
       id-token: write
       contents: read
@@ -22,33 +40,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install uv
-        run: pip install uv
-
       - uses: aws-actions/setup-sam@v2
-
-      - name: Package agent runtime
-        run: |
-          mkdir -p .agent-build
-          uv pip install \
-            -r backend/agentcore_runtimes/content/requirements.txt \
-            --target .agent-build \
-            --python-platform aarch64-manylinux2014 \
-            --only-binary :all: \
-            --python-version 3.12
-          cp -r backend/agentcore_runtimes/content/* .agent-build/
-          cd .agent-build
-          zip -r ../agent-runtime.zip . -x "__pycache__/*" "*.pyc"
-
-      - name: Upload agent runtime to S3
-        id: agent
-        run: |
-          HASH=$(sha256sum agent-runtime.zip | cut -c1-16)
-          KEY="agent-runtime/${HASH}.zip"
-          SAM_BUCKET=$(aws cloudformation describe-stacks --stack-name aws-sam-cli-managed-default --query 'Stacks[0].Outputs[?OutputKey==`SourceBucket`].OutputValue' --output text)
-          aws s3 cp agent-runtime.zip "s3://${SAM_BUCKET}/${KEY}"
-          echo "bucket=${SAM_BUCKET}" >> $GITHUB_OUTPUT
-          echo "key=${KEY}" >> $GITHUB_OUTPUT
 
       - name: SAM build
         run: sam build --config-env ci
@@ -61,7 +53,7 @@ jobs:
             --config-env ci \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
-              "ContentAgentCodeBucket=${{ steps.agent.outputs.bucket }} ContentAgentCodeKey=${{ steps.agent.outputs.key }} CertificateArn=arn:aws:acm:us-east-1:622327379339:certificate/d4006225-e2c7-49cb-80a2-b8073e8b10d0"
+              "CertificateArn=arn:aws:acm:us-east-1:622327379339:certificate/d4006225-e2c7-49cb-80a2-b8073e8b10d0"
 
       - name: Get stack outputs
         id: stack

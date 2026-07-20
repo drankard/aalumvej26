@@ -1,0 +1,35 @@
+name: Run content pipeline (manual)
+
+# Fire a pipeline run on demand — first-run verification after release, or an
+# out-of-schedule refresh. Async invoke: the run reports via the SNS email.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pipeline:
+        description: "Which pipeline to run"
+        type: choice
+        options: [oplevelser, omraadet]
+        default: oplevelser
+
+jobs:
+  invoke:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Invoke pipeline Lambda (async)
+        run: |
+          aws lambda invoke \
+            --function-name aalumvej26-content-pipeline-prod \
+            --invocation-type Event \
+            --payload '{"pipeline": "${{ inputs.pipeline }}"}' \
+            --cli-binary-format raw-in-base64-out \
+            /dev/null
+          echo "Invoked ${{ inputs.pipeline }} — watch for the SNS email."

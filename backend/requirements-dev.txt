@@ -1,3 +1,4 @@
 -r requirements.txt
+-r lambdas/content_pipeline/requirements.txt
 pytest>=8.0
 pytest-cov>=4.0
