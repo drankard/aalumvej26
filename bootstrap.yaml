@@ -232,6 +232,22 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: lambda.amazonaws.com
+              - Sid: CodeBuildManageAppProjects
+                Effect: Allow
+                Action:
+                  - codebuild:CreateProject
+                  - codebuild:UpdateProject
+                  - codebuild:DeleteProject
+                  - codebuild:BatchGetProjects
+                Resource: !Sub arn:aws:codebuild:*:${AWS::AccountId}:project/aalumvej26-*
+              - Sid: IamPassAppRolesToCodeBuild
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/aalumvej26-*
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: codebuild.amazonaws.com
               - Sid: NeverModifySelf
                 Effect: Deny
                 Action:

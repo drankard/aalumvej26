@@ -100,6 +100,7 @@ def lambda_handler(event: dict, context) -> dict:
         _report(state, table, session)
         raise  # Errors metric + alarm must fire
 
+    state.notes.append(_trigger_rebuild(session))
     _report(state, table, session)
     logger.info(f"Pipeline done: {pipeline} published={len(state.published)} "
                 f"archived={len(state.archived)} new_sources={len(state.new_sources)}")
@@ -107,11 +108,32 @@ def lambda_handler(event: dict, context) -> dict:
             "published": len(state.published), "archived": len(state.archived)}
 
 
+def _trigger_rebuild(session) -> str:
+    """Kick the CodeBuild project that rebuilds the static site from current
+    content. Returns a status line for the run report; never raises — a
+    trigger failure must not fail the content run itself. (Build failures are
+    alerted separately via the CodeBuild-failure EventBridge rule.)
+    """
+    project = os.environ.get("CONTENT_REBUILD_PROJECT", "")
+    if not project:
+        return "Site rebuild: skipped (CONTENT_REBUILD_PROJECT not set)."
+    try:
+        build = session.client("codebuild").start_build(projectName=project)
+        build_id = build.get("build", {}).get("id", project)
+        logger.info(f"Site rebuild triggered: {build_id}")
+        return f"Site rebuild: triggered ({build_id})."
+    except Exception as e:
+        logger.error(f"Site rebuild trigger FAILED: {e}", exc_info=True)
+        return f"Site rebuild: FAILED to trigger — {type(e).__name__}: {e}"
+
+
 def _run_backfill(event: dict, session, table, bedrock, now) -> dict:
     from backfill import format_report, run_backfill
     apply = bool(event.get("apply", False))
     result = run_backfill(table, bedrock, _model_id(session), now.date(), apply)
     subject, body = format_report(result["plan"], apply, now.date())
+    if apply:
+        body += "\n" + _trigger_rebuild(session)
     logger.info(body)
     topic = os.environ.get("SNS_TOPIC_ARN", "")
     if topic:

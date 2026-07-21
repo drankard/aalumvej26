@@ -94,10 +94,16 @@ Resources:
           MODEL_ID_PARAM: /aalumvej26/ai/model-id
           SEARCH_PROVIDER: serpapi
           SERPAPI_KEY_PARAM: /aalumvej26/search/serpapi-key
+          CONTENT_REBUILD_PROJECT: !Ref ContentRebuildProject
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AppTable
         - Statement:
+            - Sid: StartContentRebuild
+              Effect: Allow
+              Action:
+                - codebuild:StartBuild
+              Resource: !GetAtt ContentRebuildProject.Arn
             - Sid: BedrockInvoke
               Effect: Allow
               Action:
@@ -201,6 +207,158 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref ContentSummaryTopic
+
+  # --- Content-driven site rebuild -----------------------------------------
+  # The frontend is a static Astro build: content changes only reach the live
+  # site via a rebuild. The pipeline Lambda triggers this CodeBuild project at
+  # the end of every successful run (and backfill --apply), so the refresh is
+  # event-driven — EventBridge stays the only scheduler in the system. The
+  # buildspec just clones main and runs scripts/deploy-frontend.sh, the same
+  # script deploy.yml uses, so build logic exists exactly once.
+
+  ContentRebuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub aalumvej26-content-rebuild-${Stage}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: content-rebuild
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/aalumvej26-content-rebuild-*
+              - Sid: ReadStackOutputs
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/aalumvej26/*
+              - Sid: SyncFrontendBucket
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub arn:aws:s3:::aalumvej26-frontend-${Stage}
+                  - !Sub arn:aws:s3:::aalumvej26-frontend-${Stage}/*
+              - Sid: InvalidateCloudFront
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/*
+
+  ContentRebuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub aalumvej26-content-rebuild-${Stage}
+      Description: Rebuild the static frontend from live content (triggered by the content pipeline)
+      ServiceRole: !GetAtt ContentRebuildRole.Arn
+      TimeoutInMinutes: 15
+      ConcurrentBuildLimit: 1
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux-x86_64-standard:5.0
+        EnvironmentVariables:
+          - Name: STACK_NAME
+            Value: aalumvej26
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 20
+            build:
+              commands:
+                - git clone --depth 1 https://github.com/drankard/aalumvej26.git repo
+                - cd repo && ./scripts/deploy-frontend.sh
+
+  ContentRebuildFailureRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aalumvej26-content-rebuild-failed-${Stage}
+      Description: Alert via SNS when a content-triggered site rebuild fails
+      EventPattern:
+        source:
+          - aws.codebuild
+        detail-type:
+          - CodeBuild Build State Change
+        detail:
+          build-status:
+            - FAILED
+            - FAULT
+            - STOPPED
+            - TIMED_OUT
+          project-name:
+            - !Ref ContentRebuildProject
+      State: ENABLED
+      Targets:
+        - Arn: !Ref ContentSummaryTopic
+          Id: RebuildFailureSns
+          InputTransformer:
+            InputPathsMap:
+              status: $.detail.build-status
+              project: $.detail.project-name
+            InputTemplate: '"[aalumvej26] Site rebuild <status> (CodeBuild project <project>). The live site was NOT updated — check the CodeBuild logs in the AWS console."'
+
+  # EventBridge -> SNS requires an explicit topic policy (CloudWatch alarms do
+  # not). The Owner/CloudWatch statements preserve the access the topic
+  # already relies on, since a TopicPolicy replaces the default policy.
+  ContentSummaryTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref ContentSummaryTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: OwnerAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - sns:Publish
+              - sns:Subscribe
+              - sns:Receive
+              - sns:GetTopicAttributes
+              - sns:SetTopicAttributes
+              - sns:ListSubscriptionsByTopic
+              - sns:AddPermission
+              - sns:RemovePermission
+              - sns:DeleteTopic
+            Resource: !Ref ContentSummaryTopic
+          - Sid: CloudWatchAlarmsPublish
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref ContentSummaryTopic
+          - Sid: EventBridgePublish
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref ContentSummaryTopic
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt ContentRebuildFailureRule.Arn
 
   OplevelsSchedule:
     Type: AWS::Events::Rule

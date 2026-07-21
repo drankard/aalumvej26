@@ -1,0 +1,31 @@
+name: Rebuild frontend (manual)
+
+# Manual rebuild button — emergency lever and convenience only. Normal content
+# refreshes are event-driven with NO schedule here: the content pipeline
+# Lambda triggers the aalumvej26-content-rebuild CodeBuild project at the end
+# of every successful run (see template.yaml). Equivalent CLI:
+#   aws codebuild start-build --project-name aalumvej26-content-rebuild-prod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build and publish frontend
+        run: ./scripts/deploy-frontend.sh
