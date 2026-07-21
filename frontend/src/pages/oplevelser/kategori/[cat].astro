@@ -1,0 +1,15 @@
+---
+import ExperiencesIndex from "../../../pageviews/ExperiencesIndex.astro";
+import { getContent } from "../../../lib/content";
+
+export async function getStaticPaths() {
+  const { posts, categories } = await getContent();
+  return categories
+    .filter((c) => posts.some((p) => p.category === c.id))
+    .map((c) => ({ params: { cat: c.id } }));
+}
+
+const { cat } = Astro.params;
+---
+
+<ExperiencesIndex lang="da" categoryId={cat!} />

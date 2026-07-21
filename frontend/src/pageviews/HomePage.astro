@@ -1,0 +1,182 @@
+---
+import Base from "../layouts/Base.astro";
+import Hero from "../components/Hero.astro";
+import HouseSection from "../components/HouseSection.astro";
+import ExperienceCard from "../components/ExperienceCard.astro";
+import AreaCard from "../components/AreaCard.astro";
+import { getContent } from "../lib/content";
+import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
+import { SITE } from "../lib/site";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const L = loc(lang);
+const p = langPrefix(lang);
+const { posts, areas, categories, postSlugs, areaSlugs } = await getContent();
+const preview = posts.slice(0, 6);
+
+const titles: Record<Lang, string> = {
+  da: "Aalumvej 26 — Feriehus i Agger, Nationalpark Thy",
+  en: "Aalumvej 26 — Holiday cottage in Agger, Thy National Park",
+  de: "Aalumvej 26 — Ferienhaus in Agger, Nationalpark Thy",
+};
+const descriptions: Record<Lang, string> = {
+  da: "Charmerende stråtækt feriehus kun 200m fra Vesterhavet i Agger, Nationalpark Thy. Oplev Vestjyllands vildeste kyst — surf, natur, østers og meget mere.",
+  en: "Charming thatched holiday cottage just 200m from the North Sea in Agger, Thy National Park. Experience Western Jutland's wildest coast — surf, nature, oysters and more.",
+  de: "Charmantes reetgedecktes Ferienhaus nur 200m von der Nordsee in Agger, Nationalpark Thy. Erleben Sie Westjütlands wildeste Küste — Surfen, Natur, Austern und mehr.",
+};
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    name: "Aalumvej 26",
+    description: descriptions[lang],
+    url: `${SITE}${p}/`,
+    image: `${SITE}/images/house/01-exterior.jpg`,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "Aalumvej 26",
+      addressLocality: "Agger",
+      postalCode: "7770",
+      addressRegion: "Nordjylland",
+      addressCountry: "DK",
+    },
+    geo: { "@type": "GeoCoordinates", latitude: 56.7925, longitude: 8.2647 },
+    amenityFeature: [
+      { "@type": "LocationFeatureSpecification", name: "3 soveværelser", value: true },
+      { "@type": "LocationFeatureSpecification", name: "Brændeovn", value: true },
+      { "@type": "LocationFeatureSpecification", name: "200m til havet", value: true },
+    ],
+    numberOfRooms: 3,
+    petsAllowed: false,
+    containedInPlace: {
+      "@type": "Place",
+      name: "Nationalpark Thy",
+      url: "https://eng.nationalparkthy.dk",
+    },
+  },
+];
+---
+
+<Base
+  lang={lang}
+  title={titles[lang]}
+  description={descriptions[lang]}
+  basePath="/"
+  navVariant="overlay"
+  jsonLd={jsonLd}
+>
+  <!-- Legacy ?lang= URLs redirect to path-based locales -->
+  <script is:inline>
+    (function () {
+      var l = new URLSearchParams(location.search).get("lang");
+      if ((l === "en" || l === "de") && !location.pathname.startsWith("/" + l))
+        location.replace("/" + l + "/");
+    })();
+  </script>
+
+  <Hero lang={lang} />
+  <HouseSection lang={lang} />
+
+  <section id="oplevelser" class="experiences">
+    <div class="container">
+      <div class="heading">
+        <div class="kicker">{L.experiences.updated}</div>
+        <h2>{L.experiences.heading1}<em>{L.experiences.heading2}</em></h2>
+      </div>
+      <div class="chips">
+        {categories.map((c) => (
+          <a class="chip" href={`${p}/oplevelser/kategori/${c.id}/`}>
+            {c.icon} {pickTr(c.translations, lang).label ?? c.id}
+          </a>
+        ))}
+      </div>
+      <div class="cards">
+        {preview.map((post, i) => (
+          <ExperienceCard post={post} lang={lang} slug={postSlugs.get(post.id)!} idx={i} />
+        ))}
+      </div>
+      <div class="all">
+        <a class="btn btn-deep" href={`${p}/oplevelser/`}>{ui(lang).allExperiences} →</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="omraadet" class="areas">
+    <div class="container">
+      <div class="kicker">{L.areas.subtitle}</div>
+      <h2>{L.areas.heading1}<em>{L.areas.heading2}</em></h2>
+      <div class="cards">
+        {areas.map((area) => (
+          <AreaCard area={area} lang={lang} slug={areaSlugs.get(area.id)!} />
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .experiences {
+    padding: 100px 28px 72px;
+    background: var(--foam);
+  }
+  .heading {
+    margin-bottom: 32px;
+  }
+  .experiences h2,
+  .areas h2 {
+    font-size: clamp(24px, 4vw, 38px);
+    font-weight: 400;
+    line-height: 1.15;
+    margin: 0;
+  }
+  h2 em {
+    font-style: italic;
+    color: var(--sea);
+  }
+  .chips {
+    display: flex;
+    gap: 7px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    padding: 7px 16px;
+    border-radius: 100px;
+    font-size: 12px;
+    background: rgba(44, 62, 80, 0.06);
+    color: var(--storm);
+    text-decoration: none;
+    transition: all 0.25s;
+  }
+  .chip:hover {
+    background: var(--deep);
+    color: var(--foam);
+    opacity: 1;
+  }
+  .experiences .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .all {
+    text-align: center;
+    margin-top: 40px;
+  }
+  .areas {
+    padding: 90px 28px;
+    background: var(--foam);
+  }
+  .areas h2 {
+    margin: 0 0 40px;
+  }
+  .areas .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 14px;
+  }
+</style>

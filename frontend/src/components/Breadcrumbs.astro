@@ -1,0 +1,35 @@
+---
+import { langPrefix, ui, type Lang } from "../lib/i18n";
+
+interface Props {
+  lang: Lang;
+  trail: { label: string; href?: string }[];
+}
+
+const { lang, trail } = Astro.props;
+const home = langPrefix(lang) || "/";
+---
+
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href={home}>{ui(lang).backHome}</a>
+  {trail.map((t) => (
+    <>
+      <span class="sep">›</span>
+      {t.href ? <a href={t.href}>{t.label}</a> : <span>{t.label}</span>}
+    </>
+  ))}
+</nav>
+
+<style>
+  .crumbs {
+    font-size: 13px;
+    color: var(--driftwood);
+    margin-bottom: 22px;
+  }
+  .crumbs a {
+    color: var(--driftwood);
+  }
+  .sep {
+    margin: 0 6px;
+  }
+</style>

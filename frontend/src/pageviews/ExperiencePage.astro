@@ -1,0 +1,204 @@
+---
+import Base from "../layouts/Base.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import ExperienceCard from "../components/ExperienceCard.astro";
+import HouseCrossSell from "../components/HouseCrossSell.astro";
+import { getContent } from "../lib/content";
+import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
+import { OG_IMAGE, SITE, TAG_COLORS } from "../lib/site";
+import type { CategoryTranslation, Post, PostTranslation } from "../lib/types";
+
+interface Props {
+  lang: Lang;
+  post: Post;
+  slug: string;
+}
+
+const { lang, post, slug } = Astro.props;
+const L = loc(lang);
+const U = ui(lang);
+const p = langPrefix(lang);
+const { posts, categories, postSlugs } = await getContent();
+
+const tr = pickTr<PostTranslation>(post.translations, lang);
+const tag = (L.tags as Record<string, string>)[post.tag_key] ?? post.tag_key;
+const bg = TAG_COLORS[post.tag_key] || "#5A7A8A";
+const category = categories.find((c) => c.id === post.category);
+const catLabel = category
+  ? (pickTr<CategoryTranslation>(category.translations, lang).label ?? category.id)
+  : post.category;
+
+const sources = [...new Set([post.url, ...(post.source_urls || [])].filter(Boolean))];
+const related = posts
+  .filter((po) => po.category === post.category && po.id !== post.id)
+  .slice(0, 3);
+
+const basePath = `/oplevelser/${slug}/`;
+const title = `${tr.title} — ${L.nav.experiences} · Nationalpark Thy`;
+const description = (tr.excerpt || tr.title || "").slice(0, 300);
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "TouristAttraction",
+    name: tr.title,
+    description: tr.excerpt || "",
+    url: `${SITE}${p}${basePath}`,
+    image: OG_IMAGE,
+    isAccessibleForFree: true,
+    touristType: catLabel,
+    containedInPlace: { "@type": "Place", name: "Nationalpark Thy" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: U.backHome, item: `${SITE}${p}/` },
+      { "@type": "ListItem", position: 2, name: L.nav.experiences, item: `${SITE}${p}/oplevelser/` },
+      { "@type": "ListItem", position: 3, name: tr.title, item: `${SITE}${p}${basePath}` },
+    ],
+  },
+];
+---
+
+<Base
+  lang={lang}
+  title={title}
+  description={description}
+  basePath={basePath}
+  ogType="article"
+  jsonLd={jsonLd}
+>
+  <main class="page">
+    <article class="container">
+      <Breadcrumbs
+        lang={lang}
+        trail={[{ label: L.nav.experiences, href: `${p}/oplevelser/` }, { label: tr.title }]}
+      />
+      <div class="meta">
+        <span class="tag" style={`background:${bg}`}>{tag}</span>
+        {tr.date && <span class="date">{tr.date}</span>}
+        {category && (
+          <a class="cat" href={`${p}/oplevelser/kategori/${category.id}/`}>
+            {category.icon} {catLabel}
+          </a>
+        )}
+      </div>
+      <h1>{post.emoji} {tr.title}</h1>
+      <p class="lead">{tr.excerpt}</p>
+      {post.url && (
+        <p>
+          <a
+            class="btn btn-rust"
+            href={post.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >
+            {U.readMoreSource} →
+          </a>
+        </p>
+      )}
+      {sources.length > 0 && (
+        <section class="sources">
+          <h2>{U.sources}</h2>
+          <ul>
+            {sources.map((u) => (
+              <li>
+                <a href={u} target="_blank" rel="noopener noreferrer nofollow">{u}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <HouseCrossSell lang={lang} />
+      {related.length > 0 && (
+        <section class="related">
+          <h2>{U.related}</h2>
+          <div class="cards">
+            {related.map((r, i) => (
+              <ExperienceCard post={r} lang={lang} slug={postSlugs.get(r.id)!} idx={i} />
+            ))}
+          </div>
+        </section>
+      )}
+      <p class="langs">
+        {U.otherLangs}:
+        {LANGS.filter((x) => x !== lang).map((x) => (
+          <a href={`${langPrefix(x)}${basePath}`}>{x.toUpperCase()}</a>
+        ))}
+      </p>
+    </article>
+  </main>
+</Base>
+
+<style>
+  .page {
+    padding: 110px 28px 72px;
+    background: var(--foam);
+  }
+  article.container {
+    max-width: 820px;
+  }
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .date {
+    font-size: 12px;
+    color: var(--driftwood);
+  }
+  .cat {
+    font-size: 12px;
+    color: var(--storm);
+    text-decoration: none;
+    background: rgba(44, 62, 80, 0.06);
+    padding: 3px 12px;
+    border-radius: 100px;
+  }
+  h1 {
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 400;
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+  .lead {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 22px;
+  }
+  .sources {
+    margin-top: 36px;
+  }
+  .sources h2,
+  .related h2 {
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
+  .sources ul {
+    list-style: none;
+    font-size: 13px;
+  }
+  .sources li {
+    margin-bottom: 6px;
+    overflow-wrap: anywhere;
+  }
+  .related {
+    margin-top: 48px;
+  }
+  .related .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .langs {
+    margin-top: 40px;
+    font-size: 12px;
+    color: var(--driftwood);
+  }
+  .langs a {
+    margin-left: 10px;
+  }
+</style>

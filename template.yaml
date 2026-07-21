@@ -297,15 +297,10 @@ Resources:
           Compress: true
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
           ResponseHeadersPolicyId: eaab4381-ed33-4a86-88ca-d9558dc6cd63
-        CustomErrorResponses:
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 0
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 0
+        # No SPA fallback: the site is fully static multi-page (Astro), so
+        # missing paths surface as real 404s (S3 website ErrorDocument serves
+        # /404.html with a 404 status). This avoids soft-404s in search/AI
+        # indexing.
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
@@ -318,7 +313,7 @@ Resources:
       BucketName: !Sub aalumvej26-frontend-${Stage}
       WebsiteConfiguration:
         IndexDocument: index.html
-        ErrorDocument: index.html
+        ErrorDocument: 404.html
       PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         BlockPublicPolicy: false

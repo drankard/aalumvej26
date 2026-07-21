@@ -1,0 +1,152 @@
+---
+import Base from "../layouts/Base.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import AreaCard from "../components/AreaCard.astro";
+import HouseCrossSell from "../components/HouseCrossSell.astro";
+import { getContent } from "../lib/content";
+import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
+import { OG_IMAGE, SITE } from "../lib/site";
+import type { Area, AreaTranslation } from "../lib/types";
+
+interface Props {
+  lang: Lang;
+  area: Area;
+  slug: string;
+}
+
+const { lang, area, slug } = Astro.props;
+const L = loc(lang);
+const U = ui(lang);
+const p = langPrefix(lang);
+const { areas, areaSlugs } = await getContent();
+
+const tr = pickTr<AreaTranslation>(area.translations, lang);
+const others = areas.filter((a) => a.id !== area.id).slice(0, 3);
+
+const basePath = `/omraadet/${slug}/`;
+const title = `${tr.name} — ${L.nav.area} · Agger, Thy`;
+const description = (tr.desc || tr.name || "").slice(0, 300);
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "TouristAttraction",
+    name: tr.name,
+    description: tr.desc || "",
+    url: `${SITE}${p}${basePath}`,
+    image: OG_IMAGE,
+    containedInPlace: { "@type": "Place", name: "Nationalpark Thy" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: U.backHome, item: `${SITE}${p}/` },
+      { "@type": "ListItem", position: 2, name: L.nav.area, item: `${SITE}${p}/omraadet/` },
+      { "@type": "ListItem", position: 3, name: tr.name, item: `${SITE}${p}${basePath}` },
+    ],
+  },
+];
+---
+
+<Base
+  lang={lang}
+  title={title}
+  description={description}
+  basePath={basePath}
+  ogType="article"
+  jsonLd={jsonLd}
+>
+  <main class="page">
+    <article class="container">
+      <Breadcrumbs
+        lang={lang}
+        trail={[{ label: L.nav.area, href: `${p}/omraadet/` }, { label: tr.name }]}
+      />
+      <div class="meta">
+        {tr.dist && <span class="dist">{U.distance}: {tr.dist}</span>}
+      </div>
+      <h1>{tr.name}</h1>
+      <p class="lead">{tr.desc}</p>
+      {area.url && (
+        <p>
+          <a
+            class="btn btn-rust"
+            href={area.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >
+            {U.readMoreSource} →
+          </a>
+        </p>
+      )}
+      <HouseCrossSell lang={lang} />
+      {others.length > 0 && (
+        <section class="related">
+          <h2>{U.allAreas}</h2>
+          <div class="cards">
+            {others.map((o) => (
+              <AreaCard area={o} lang={lang} slug={areaSlugs.get(o.id)!} />
+            ))}
+          </div>
+        </section>
+      )}
+      <p class="langs">
+        {U.otherLangs}:
+        {LANGS.filter((x) => x !== lang).map((x) => (
+          <a href={`${langPrefix(x)}${basePath}`}>{x.toUpperCase()}</a>
+        ))}
+      </p>
+    </article>
+  </main>
+</Base>
+
+<style>
+  .page {
+    padding: 110px 28px 72px;
+    background: var(--foam);
+  }
+  article.container {
+    max-width: 820px;
+  }
+  .meta {
+    margin-bottom: 10px;
+  }
+  .dist {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rust);
+  }
+  h1 {
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 400;
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+  .lead {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 22px;
+  }
+  .related {
+    margin-top: 48px;
+  }
+  .related h2 {
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
+  .related .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .langs {
+    margin-top: 40px;
+    font-size: 12px;
+    color: var(--driftwood);
+  }
+  .langs a {
+    margin-left: 10px;
+  }
+</style>
