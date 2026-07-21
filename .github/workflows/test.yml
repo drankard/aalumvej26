@@ -33,7 +33,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install and build (typecheck via tsc)
+      - name: Install and build (typecheck via astro check; builds without API in house-only mode)
         working-directory: frontend
         run: |
           npm ci

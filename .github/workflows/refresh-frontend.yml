@@ -1,15 +1,20 @@
-name: Refresh frontend (prerender)
+name: Refresh frontend content
 
-# Rebuilds and re-syncs ONLY the frontend so the static, crawlable pages
-# (sitemap.xml, llms.txt, /oplevelser/*, /omraadet/*, home SEO block) are
-# regenerated from the latest DynamoDB content produced by the content
-# pipeline. No SAM/infra deploy happens here.
+# The site is a fully static Astro build: content is fetched from the RPC API
+# at build time. When the content pipeline writes new posts/areas to DynamoDB,
+# the live pages don't change until the frontend is rebuilt — this workflow
+# does exactly that (build + S3 sync + CloudFront invalidation). No SAM/infra
+# deploy happens here.
 #
 # Scheduled to run shortly after each content-pipeline run:
 #   - oplevelser pipeline: cron(0 0 ? * SUN *)  -> refresh Sundays 02:00 UTC
 #   - omraadet pipeline:   cron(0 6 ? * 2#1 *)  -> refresh Mondays 08:00 UTC
 # (a non-first-Monday refresh is a harmless no-op re-sync). Also runnable on
 # demand right after a manual `Run content pipeline` dispatch.
+#
+# Known follow-up: replace the cron coupling with an event-driven trigger
+# (pipeline Lambda -> repository_dispatch); needs a fine-grained GitHub token
+# in AWS, so it's a deliberate separate decision.
 
 on:
   schedule:
@@ -43,7 +48,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Build frontend (fetches live content, prerenders static pages)
+      - name: Build frontend (Astro SSG, fetches live content from the RPC API)
         working-directory: frontend
         run: |
           npm ci
