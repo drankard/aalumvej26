@@ -55,30 +55,11 @@ jobs:
             --parameter-overrides \
               "CertificateArn=arn:aws:acm:us-east-1:622327379339:certificate/d4006225-e2c7-49cb-80a2-b8073e8b10d0"
 
-      - name: Get stack outputs
-        id: stack
-        run: |
-          API_URL=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text)
-          BUCKET=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucket`].OutputValue' --output text)
-          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
-          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
-
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Build frontend
-        working-directory: frontend
-        run: |
-          npm ci
-          VITE_API_URL=${{ steps.stack.outputs.api_url }} npm run build
-
-      - name: Deploy frontend
-        run: aws s3 sync frontend/dist s3://${{ steps.stack.outputs.bucket }} --delete
-
-      - name: Invalidate CloudFront cache
-        run: |
-          DIST_ID=$(aws cloudformation describe-stacks --stack-name aalumvej26 --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null || true)
-          if [ -n "$DIST_ID" ] && [ "$DIST_ID" != "None" ]; then
-            aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
-          fi
+      # Same script the content-rebuild CodeBuild project runs — build logic
+      # exists exactly once (scripts/deploy-frontend.sh).
+      - name: Build and publish frontend
+        run: ./scripts/deploy-frontend.sh

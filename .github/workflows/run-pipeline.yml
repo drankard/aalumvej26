@@ -2,6 +2,8 @@ name: Run content pipeline (manual)
 
 # Fire a pipeline run on demand — first-run verification after release, or an
 # out-of-schedule refresh. Async invoke: the run reports via the SNS email.
+# A successful run automatically triggers the site rebuild (CodeBuild), so no
+# separate frontend step is needed afterwards.
 
 on:
   workflow_dispatch:
