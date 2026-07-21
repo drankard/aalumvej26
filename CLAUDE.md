@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- **Frontend**: React + TypeScript + Vite, hosted on S3 static website
+- **Frontend**: Astro (static site generation) + TypeScript, hosted on S3 static website. The build fetches content from the backend RPC API and renders every page as static HTML — da at the root, `/en/` and `/de/` path-prefixed — so all content is crawlable by search engines and AI indexers without JavaScript.
 - **Backend**: Single Python Lambda, RPC-style (not REST) via API Gateway v2 HTTP API
 - **Database**: DynamoDB single-table design (pk/sk pattern)
 - **IaC**: Native CloudFormation via AWS SAM (`template.yaml`)
@@ -16,7 +16,7 @@
 npm run dev              # Start backend + frontend locally
 npm test                 # Run backend pytest suite
 npm run build            # SAM build (backend)
-npm run build:frontend   # Vite production build
+npm run build:frontend   # Astro production build (astro check && astro build)
 npm run deploy           # SAM deploy (backend infra)
 npm run deploy:frontend  # Build + sync frontend to S3
 npm run deploy:all       # Deploy backend then frontend
@@ -41,9 +41,11 @@ npm run deploy:all       # Deploy backend then frontend
 
 ## Frontend Design
 
-- Context-based state management (`AppContext`)
-- RPC client (`api/client.ts`) handles all backend calls
-- `VITE_API_URL` env var sets the API endpoint (defaults to `http://localhost:4000` for dev)
+- **Astro static site**: content is fetched once per build (`src/lib/content.ts`, RPC `list_content` + `list_archived_posts`) and rendered to static HTML. No client-side data fetching; small vanilla-JS islands handle the carousel/nav/sticky-bar interactivity.
+- **URL contract** (parity-critical, see `src/lib/slug.ts` + `scripts/slug-parity.mjs`): `/oplevelser/{slug}/`, `/omraadet/{slug}/`, category hubs `/oplevelser/kategori/{id}/`, archive `/oplevelser/arkiv/`, locales as path prefixes (`/en/`, `/de/`; da at root). Slugs derive from the Danish title — never change the slug algorithm without a redirect plan.
+- **Page structure**: routes in `src/pages/` (da root + `[lang]` tree) are thin wrappers around shared implementations in `src/pageviews/`. SEO endpoints: `sitemap.xml.ts`, `llms.txt.ts`, `llms-full.txt.ts`.
+- `VITE_API_URL` env var sets the API endpoint used at build/dev time (defaults to `http://localhost:4000` for dev); `PRERENDER_CONTENT_FILE` points at a JSON snapshot for offline builds.
+- Build never fails on API outage — it degrades to house-only pages and logs loudly.
 
 ## Adding a New Feature
 
@@ -51,11 +53,11 @@ npm run deploy:all       # Deploy backend then frontend
 2. Add repository methods in `backend/repositories/`
 3. Register action in `backend/actions/` with `@register("action_name")`
 4. Write tests for each layer
-5. Add frontend components/context as needed
+5. Add frontend components/pages as needed (`src/components/`, `src/pageviews/`, `src/pages/`)
 6. Handler wiring is automatic via the action registry
 
 ## Local Dev
 
 - Backend runs on port 4000 (`backend/dev_server.py`), hits real DynamoDB via SSO
-- Frontend runs on Vite dev server (port 5173+)
+- Frontend runs on Astro dev server (port 4321+)
 - Both start together with `npm run dev`

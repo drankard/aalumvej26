@@ -1,0 +1,198 @@
+---
+import { loc, type Lang } from "../lib/i18n";
+import { BOOKING, HOUSE_IMAGES } from "../lib/site";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const L = loc(lang);
+---
+
+<section id="huset" class="house">
+  <div class="container grid">
+    <div class="carousel" id="house-carousel">
+      {HOUSE_IMAGES.map((img, i) => (
+        <img
+          src={img.src}
+          alt={img.alt}
+          loading={i === 0 ? "eager" : "lazy"}
+          class:list={[{ active: i === 0 }]}
+          data-idx={i}
+        />
+      ))}
+      <div class="dots" aria-hidden="true">
+        {HOUSE_IMAGES.map((_, i) => <span class:list={["dot", { active: i === 0 }]} data-idx={i} />)}
+      </div>
+      <div class="counter" aria-hidden="true">
+        <span id="carousel-count">1</span> / {HOUSE_IMAGES.length}
+      </div>
+    </div>
+    <div>
+      <div class="kicker">{L.house.address}</div>
+      <h2>{L.house.heading1}<br /><em>{L.house.heading2}</em></h2>
+      <p class="desc">{L.house.description}</p>
+      <div class="features">
+        {L.features.map((f) => <div class="feature">{f}</div>)}
+      </div>
+      <div class="facts">
+        <span>{L.house.size}</span><span>·</span>
+        <span>{L.house.built}</span><span>·</span>
+        <span>{L.house.renovated}</span><span>·</span>
+        <span>{L.house.bedrooms}</span>
+      </div>
+      <p class="note">{L.house.bookingNote}</p>
+      <a
+        class="btn btn-deep"
+        href={BOOKING}
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick="window.fbq&&fbq('track','Contact')"
+      >
+        {L.house.bookBtn}
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .house {
+    padding: 90px 28px;
+    background: var(--cloud);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  @media (max-width: 860px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .carousel {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    background: var(--sand);
+    cursor: pointer;
+  }
+  .carousel img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1s;
+  }
+  .carousel img.active {
+    opacity: 1;
+  }
+  .dots {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 5px 9px;
+    border-radius: 10px;
+    pointer-events: none;
+  }
+  .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.45);
+    transition: all 0.3s;
+  }
+  .dot.active {
+    width: 16px;
+    background: var(--rust);
+  }
+  .counter {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    pointer-events: none;
+    font-size: 11px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  h2 {
+    font-size: clamp(24px, 3.5vw, 36px);
+    font-weight: 400;
+    margin: 0 0 16px;
+    line-height: 1.2;
+  }
+  .desc {
+    font-size: 14px;
+    line-height: 1.7;
+    margin-bottom: 22px;
+    opacity: 0.8;
+  }
+  .features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-bottom: 22px;
+  }
+  .feature {
+    padding: 8px 11px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--deep);
+  }
+  .facts {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 22px;
+    font-size: 11px;
+    color: var(--driftwood);
+    flex-wrap: wrap;
+  }
+  .note {
+    font-size: 13px;
+    line-height: 1.7;
+    margin-bottom: 22px;
+    opacity: 0.7;
+  }
+</style>
+
+<script>
+  const root = document.getElementById("house-carousel");
+  if (root) {
+    const imgs = root.querySelectorAll<HTMLImageElement>("img[data-idx]");
+    const dots = root.querySelectorAll<HTMLElement>(".dot");
+    const count = document.getElementById("carousel-count");
+    let cur = 0;
+    let paused = false;
+    let resume: ReturnType<typeof setTimeout>;
+
+    const show = (i: number) => {
+      cur = (i + imgs.length) % imgs.length;
+      imgs.forEach((img, k) => img.classList.toggle("active", k === cur));
+      dots.forEach((d, k) => d.classList.toggle("active", k === cur));
+      if (count) count.textContent = String(cur + 1);
+    };
+
+    root.addEventListener("click", () => {
+      show(cur + 1);
+      paused = true;
+      clearTimeout(resume);
+      resume = setTimeout(() => (paused = false), 10000);
+    });
+
+    setInterval(() => {
+      if (!paused) show(cur + 1);
+    }, 5000);
+  }
+</script>

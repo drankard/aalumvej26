@@ -1,0 +1,54 @@
+---
+import { langPrefix, pickTr, type Lang } from "../lib/i18n";
+import type { Area, AreaTranslation } from "../lib/types";
+
+interface Props {
+  area: Area;
+  lang: Lang;
+  slug: string;
+}
+
+const { area, lang, slug } = Astro.props;
+const tr = pickTr<AreaTranslation>(area.translations, lang);
+---
+
+<a class="card" href={`${langPrefix(lang)}/omraadet/${slug}/`}>
+  <div class="dist">{tr.dist}</div>
+  <h3>{tr.name}</h3>
+  <p>{tr.desc}</p>
+</a>
+
+<style>
+  .card {
+    padding: 24px;
+    background: #fff;
+    border-radius: 11px;
+    border: 1px solid rgba(212, 197, 169, 0.3);
+    text-decoration: none;
+    display: block;
+    transition: all 0.3s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 32px rgba(44, 62, 80, 0.1);
+    opacity: 1;
+  }
+  .dist {
+    font-size: 10px;
+    color: var(--rust);
+    letter-spacing: 0.06em;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+  h3 {
+    font-size: 19px;
+    margin: 0 0 7px;
+  }
+  p {
+    font-size: 13px;
+    color: var(--storm);
+    line-height: 1.55;
+    margin: 0;
+    opacity: 0.72;
+  }
+</style>

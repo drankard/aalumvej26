@@ -1,0 +1,20 @@
+---
+import ExperiencePage from "../../../pageviews/ExperiencePage.astro";
+import { getContent } from "../../../lib/content";
+import type { Lang } from "../../../lib/i18n";
+
+export async function getStaticPaths() {
+  const { posts, postSlugs } = await getContent();
+  return ["en", "de"].flatMap((lang) =>
+    posts.map((post) => ({
+      params: { lang, slug: postSlugs.get(post.id)! },
+      props: { post },
+    }))
+  );
+}
+
+const { post } = Astro.props;
+const { lang, slug } = Astro.params;
+---
+
+<ExperiencePage lang={lang as Lang} post={post} slug={slug!} />

@@ -1,0 +1,17 @@
+---
+import ExperiencePage from "../../pageviews/ExperiencePage.astro";
+import { getContent } from "../../lib/content";
+
+export async function getStaticPaths() {
+  const { posts, postSlugs } = await getContent();
+  return posts.map((post) => ({
+    params: { slug: postSlugs.get(post.id)! },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { slug } = Astro.params;
+---
+
+<ExperiencePage lang="da" post={post} slug={slug!} />

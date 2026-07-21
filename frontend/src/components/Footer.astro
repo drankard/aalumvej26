@@ -1,0 +1,133 @@
+---
+import { langPrefix, loc, type Lang } from "../lib/i18n";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const L = loc(lang);
+const p = langPrefix(lang);
+const pages = [
+  { href: `${p || "/"}#huset`, label: L.nav.house },
+  { href: `${p}/oplevelser/`, label: L.nav.experiences },
+  { href: `${p}/omraadet/`, label: L.nav.area },
+];
+const external = [
+  { href: "https://eng.nationalparkthy.dk", label: "Nationalpark Thy" },
+  { href: "https://www.visit-nordvestkysten.com", label: "VisitNordvestkysten" },
+  { href: "https://coldhawaiisurfcamp.com", label: "Cold Hawaii Surf Camp" },
+  { href: "https://www.jesperhus.dk", label: "Jesperhus" },
+];
+---
+
+<footer class="site-footer">
+  <div class="container grid">
+    <div>
+      <div class="brand">{L.nav.brand}</div>
+      <p class="tagline">{L.footer.tagline}</p>
+    </div>
+    <div>
+      <div class="head">{L.footer.pages}</div>
+      <div class="links">
+        {pages.map((l) => <a href={l.href}>{l.label}</a>)}
+      </div>
+    </div>
+    <div>
+      <div class="head">{L.footer.explore}</div>
+      <div class="links">
+        {external.map((l) => (
+          <a href={l.href} target="_blank" rel="noopener noreferrer">{l.label}</a>
+        ))}
+      </div>
+    </div>
+    <div>
+      <div class="head">{L.footer.contact}</div>
+      <div class="links">
+        <a href="https://www.aggerferiehuse.dk" target="_blank" rel="noopener noreferrer">
+          Agger Feriehuse
+        </a>
+        <div class="note">{L.footer.contactNote}</div>
+      </div>
+    </div>
+  </div>
+  <div class="container bottom">
+    <span>{L.footer.copyright}</span>
+    <span>
+      {L.footer.bookingVia}
+      <a
+        href="https://www.aggerferiehuse.dk"
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick="window.fbq&&fbq('track','Contact')"
+        class="booklink">aggerferiehuse.dk</a
+      >
+    </span>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    padding: 48px 28px 80px;
+    background: var(--deep);
+    color: rgba(245, 240, 232, 0.4);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 36px;
+  }
+  @media (max-width: 800px) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .brand {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--foam);
+    margin-bottom: 10px;
+  }
+  .tagline {
+    font-size: 12px;
+    line-height: 1.6;
+    max-width: 280px;
+  }
+  .head {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 12px;
+  }
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-size: 12px;
+  }
+  .links a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .note {
+    opacity: 0.6;
+    font-size: 11px;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+  .bottom {
+    margin-top: 36px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(245, 240, 232, 0.07);
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .booklink {
+    color: var(--rust);
+    text-decoration: none;
+  }
+</style>

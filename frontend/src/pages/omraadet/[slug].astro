@@ -1,0 +1,17 @@
+---
+import AreaPage from "../../pageviews/AreaPage.astro";
+import { getContent } from "../../lib/content";
+
+export async function getStaticPaths() {
+  const { areas, areaSlugs } = await getContent();
+  return areas.map((area) => ({
+    params: { slug: areaSlugs.get(area.id)! },
+    props: { area },
+  }));
+}
+
+const { area } = Astro.props;
+const { slug } = Astro.params;
+---
+
+<AreaPage lang="da" area={area} slug={slug!} />

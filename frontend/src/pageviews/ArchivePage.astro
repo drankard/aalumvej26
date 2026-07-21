@@ -1,0 +1,74 @@
+---
+import Base from "../layouts/Base.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import ExperienceCard from "../components/ExperienceCard.astro";
+import { getContent } from "../lib/content";
+import { buildSlugMap } from "../lib/slug";
+import { langPrefix, loc, ui, type Lang } from "../lib/i18n";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const L = loc(lang);
+const U = ui(lang);
+const p = langPrefix(lang);
+const { archivedPosts } = await getContent();
+const archiveSlugs = buildSlugMap(archivedPosts);
+
+const basePath = "/oplevelser/arkiv/";
+const title = `${L.experiences.archiveLabel} — Aalumvej 26 · Nationalpark Thy`;
+---
+
+<Base lang={lang} title={title} description={U.archiveIntro} basePath={basePath}>
+  <main class="page">
+    <div class="container">
+      <Breadcrumbs
+        lang={lang}
+        trail={[
+          { label: L.nav.experiences, href: `${p}/oplevelser/` },
+          { label: L.experiences.archiveLabel },
+        ]}
+      />
+      <h1>{L.experiences.archiveLabel}</h1>
+      <p class="intro">{U.archiveIntro}</p>
+      <div class="cards">
+        {archivedPosts.map((post, i) => (
+          <ExperienceCard
+            post={post}
+            lang={lang}
+            slug={archiveSlugs.get(post.id)!}
+            external
+            idx={i}
+          />
+        ))}
+      </div>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .page {
+    padding: 110px 28px 72px;
+    background: var(--foam);
+    min-height: 60vh;
+  }
+  h1 {
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 400;
+    margin-bottom: 10px;
+  }
+  .intro {
+    font-size: 14px;
+    opacity: 0.75;
+    margin-bottom: 28px;
+    max-width: 560px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    opacity: 0.8;
+  }
+</style>

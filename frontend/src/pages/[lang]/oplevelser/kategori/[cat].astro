@@ -1,0 +1,17 @@
+---
+import ExperiencesIndex from "../../../../pageviews/ExperiencesIndex.astro";
+import { getContent } from "../../../../lib/content";
+import type { Lang } from "../../../../lib/i18n";
+
+export async function getStaticPaths() {
+  const { posts, categories } = await getContent();
+  const cats = categories.filter((c) => posts.some((p) => p.category === c.id));
+  return ["en", "de"].flatMap((lang) =>
+    cats.map((c) => ({ params: { lang, cat: c.id } }))
+  );
+}
+
+const { lang, cat } = Astro.params;
+---
+
+<ExperiencesIndex lang={lang as Lang} categoryId={cat!} />

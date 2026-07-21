@@ -1,0 +1,143 @@
+---
+import Base from "../layouts/Base.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import ExperienceCard from "../components/ExperienceCard.astro";
+import HouseCrossSell from "../components/HouseCrossSell.astro";
+import { getContent } from "../lib/content";
+import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
+import { SITE } from "../lib/site";
+import type { CategoryTranslation, Post } from "../lib/types";
+
+interface Props {
+  lang: Lang;
+  /** When set, renders the category-hub variant of the index. */
+  categoryId?: string;
+}
+
+const { lang, categoryId } = Astro.props;
+const L = loc(lang);
+const U = ui(lang);
+const p = langPrefix(lang);
+const { posts, categories, postSlugs } = await getContent();
+
+const category = categoryId ? categories.find((c) => c.id === categoryId) : undefined;
+const catLabel = category
+  ? (pickTr<CategoryTranslation>(category.translations, lang).label ?? category.id)
+  : undefined;
+const shown: Post[] = category ? posts.filter((po) => po.category === category.id) : posts;
+
+const basePath = category ? `/oplevelser/kategori/${category.id}/` : "/oplevelser/";
+const title = category
+  ? `${category.icon} ${catLabel} — ${L.nav.experiences} · Nationalpark Thy`
+  : `${U.allExperiences} — Aalumvej 26, Agger · Nationalpark Thy`;
+const description = category
+  ? `${catLabel}: ${U.intro}`
+  : `${U.allExperiences}: ${U.intro}`;
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: category ? catLabel : U.allExperiences,
+    itemListElement: shown.map((post, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: pickTr(post.translations, lang).title,
+      url: `${SITE}${p}/oplevelser/${postSlugs.get(post.id)}/`,
+    })),
+  },
+];
+
+const trail = category
+  ? [{ label: L.nav.experiences, href: `${p}/oplevelser/` }, { label: catLabel! }]
+  : [{ label: L.nav.experiences }];
+---
+
+<Base lang={lang} title={title} description={description} basePath={basePath} jsonLd={jsonLd}>
+  <main class="page">
+    <div class="container">
+      <Breadcrumbs lang={lang} trail={trail} />
+      <div class="kicker">{L.experiences.updated}</div>
+      <h1>
+        {category ? `${category.icon} ${catLabel}` : U.allExperiences}
+      </h1>
+      <p class="intro">{U.intro}</p>
+      <div class="chips">
+        <a class:list={["chip", { active: !category }]} href={`${p}/oplevelser/`}>
+          ◈ {L.experiences.allFilter}
+        </a>
+        {categories.map((c) => (
+          <a
+            class:list={["chip", { active: c.id === categoryId }]}
+            href={`${p}/oplevelser/kategori/${c.id}/`}
+          >
+            {c.icon} {pickTr(c.translations, lang).label ?? c.id}
+          </a>
+        ))}
+      </div>
+      <div class="cards">
+        {shown.map((post, i) => (
+          <ExperienceCard post={post} lang={lang} slug={postSlugs.get(post.id)!} idx={i} />
+        ))}
+      </div>
+      {!category && (
+        <p class="archive-link">
+          <a href={`${p}/oplevelser/arkiv/`}>{L.experiences.showArchive}</a>
+        </p>
+      )}
+      <HouseCrossSell lang={lang} />
+    </div>
+  </main>
+</Base>
+
+<style>
+  .page {
+    padding: 110px 28px 72px;
+    background: var(--foam);
+    min-height: 60vh;
+  }
+  h1 {
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 400;
+    margin-bottom: 10px;
+  }
+  .intro {
+    font-size: 14px;
+    opacity: 0.75;
+    margin-bottom: 28px;
+    max-width: 560px;
+  }
+  .chips {
+    display: flex;
+    gap: 7px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    padding: 7px 16px;
+    border-radius: 100px;
+    font-size: 12px;
+    background: rgba(44, 62, 80, 0.06);
+    color: var(--storm);
+    text-decoration: none;
+    transition: all 0.25s;
+  }
+  .chip.active {
+    background: var(--deep);
+    color: var(--foam);
+    font-weight: 600;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .archive-link {
+    text-align: center;
+    margin-top: 36px;
+    font-size: 12px;
+  }
+  .archive-link a {
+    color: var(--driftwood);
+  }
+</style>

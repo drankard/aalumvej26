@@ -1,0 +1,76 @@
+---
+import { langPrefix, loc, ui, type Lang } from "../lib/i18n";
+import { BOOKING } from "../lib/site";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const L = loc(lang);
+---
+
+<aside class="cross-sell">
+  <img src="/images/house/01-exterior.jpg" alt={L.nav.brand} loading="lazy" />
+  <div>
+    <h2>{ui(lang).nearbyHeading}</h2>
+    <p>{L.house.description}</p>
+    <div class="actions">
+      <a
+        class="btn btn-rust"
+        href={BOOKING}
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick="window.fbq&&fbq('track','Contact')"
+      >
+        {L.house.bookBtn}
+      </a>
+      <a class="btn ghost" href={`${langPrefix(lang) || "/"}#huset`}>{L.hero.houseBtn}</a>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .cross-sell {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    align-items: center;
+    background: var(--cloud);
+    border-radius: 14px;
+    padding: 24px;
+    margin-top: 48px;
+  }
+  @media (max-width: 640px) {
+    .cross-sell {
+      grid-template-columns: 1fr;
+    }
+  }
+  img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  h2 {
+    font-size: 22px;
+    margin: 0 0 8px;
+  }
+  p {
+    font-size: 13px;
+    line-height: 1.65;
+    opacity: 0.8;
+    margin-bottom: 16px;
+  }
+  .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .ghost {
+    color: var(--deep);
+    background: rgba(44, 62, 80, 0.06);
+    border: 1px solid rgba(44, 62, 80, 0.12);
+    font-weight: 500;
+  }
+</style>

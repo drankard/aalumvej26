@@ -1,0 +1,146 @@
+---
+import { LANGS, langPrefix, loc, type Lang } from "../lib/i18n";
+import { BOOKING } from "../lib/site";
+
+interface Props {
+  lang: Lang;
+  variant: "overlay" | "solid";
+  /** Locale-less current path, used by the language switcher. */
+  basePath: string;
+}
+
+const { lang, variant, basePath } = Astro.props;
+const L = loc(lang);
+const home = langPrefix(lang) || "/";
+const links = [
+  { href: `${home}#huset`, label: L.nav.house },
+  { href: `${langPrefix(lang)}/oplevelser/`, label: L.nav.experiences },
+  { href: `${langPrefix(lang)}/omraadet/`, label: L.nav.area },
+];
+---
+
+<nav class:list={["site-nav", variant]} data-variant={variant}>
+  <a class="brand" href={home}>{L.nav.brand}</a>
+  <div class="right">
+    {links.map((l) => <a class="navlink" href={l.href}>{l.label}</a>)}
+    <div class="langs">
+      {LANGS.map((l, i) => (
+        <a
+          class:list={["lang", { active: l === lang, divider: i > 0 }]}
+          href={`${langPrefix(l)}${basePath}`}
+          aria-current={l === lang ? "true" : undefined}
+        >
+          {l.toUpperCase()}
+        </a>
+      ))}
+    </div>
+    <a
+      class="book"
+      href={BOOKING}
+      target="_blank"
+      rel="noopener noreferrer"
+      onclick="window.fbq&&fbq('track','Contact')"
+    >
+      {L.nav.book}
+    </a>
+  </div>
+</nav>
+
+<style>
+  .site-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 900;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 28px;
+    transition: all 0.4s;
+    background: rgba(44, 62, 80, 0.93);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .site-nav.overlay:not(.scrolled) {
+    background: transparent;
+    backdrop-filter: none;
+    border-bottom: none;
+    padding: 22px 28px;
+  }
+  .brand {
+    font-family: var(--serif);
+    font-size: 17px;
+    color: var(--foam);
+    letter-spacing: 0.08em;
+    text-decoration: none;
+  }
+  .right {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .navlink {
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(245, 240, 232, 0.6);
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  .navlink:hover {
+    color: var(--rust);
+  }
+  .langs {
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-left: 4px;
+  }
+  .lang {
+    font-family: var(--sans);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    text-decoration: none;
+    color: rgba(245, 240, 232, 0.35);
+    transition: all 0.25s;
+  }
+  .lang.divider {
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .lang.active {
+    background: rgba(255, 255, 255, 0.13);
+    color: var(--foam);
+    font-weight: 600;
+  }
+  .book {
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--foam);
+    background: var(--rust);
+    padding: 7px 14px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  @media (max-width: 640px) {
+    .navlink {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const nav = document.querySelector(".site-nav");
+  if (nav && nav.getAttribute("data-variant") === "overlay") {
+    const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 60);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  }
+</script>
