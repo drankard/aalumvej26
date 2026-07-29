@@ -6,6 +6,8 @@ import HouseCrossSell from "../components/HouseCrossSell.astro";
 import FactsTable from "../components/FactsTable.astro";
 import Faq from "../components/Faq.astro";
 import FromHouse from "../components/FromHouse.astro";
+import MoreDetail from "../components/MoreDetail.astro";
+import { hostname } from "../lib/facts";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
@@ -103,7 +105,7 @@ if (faq.length > 0) {
       <h1>{tr.name}</h1>
       <p class="lead">{tr.desc}</p>
       <FactsTable lang={lang} facts={facts} />
-      {bodyHtml && <div class="prose" set:html={bodyHtml} />}
+      <MoreDetail lang={lang} html={bodyHtml} />
       <FromHouse lang={lang} text={tr.from_house} />
       <Faq lang={lang} items={faq} />
       <HouseCrossSell lang={lang} />
@@ -111,7 +113,7 @@ if (faq.length > 0) {
         <p class="attribution">
           {U.sourceNote}:
           <a href={area.url} target="_blank" rel="noopener noreferrer nofollow">
-            {new URL(area.url).hostname.replace(/^www\./, "")}
+            {hostname(area.url)}
           </a>
         </p>
       )}
@@ -166,27 +168,6 @@ if (faq.length > 0) {
     font-size: 19px;
     line-height: 1.6;
     margin-bottom: 22px;
-  }
-  .prose :global(h2) {
-    font-size: 22px;
-    margin: 32px 0 12px;
-  }
-  .prose :global(h3) {
-    font-size: 18px;
-    margin: 24px 0 10px;
-  }
-  .prose :global(p) {
-    font-size: 16px;
-    line-height: 1.75;
-    margin-bottom: 16px;
-  }
-  .prose :global(ul) {
-    margin: 0 0 16px 20px;
-    font-size: 16px;
-    line-height: 1.75;
-  }
-  .prose :global(li) {
-    margin-bottom: 6px;
   }
   .attribution,
   .updated {

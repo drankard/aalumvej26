@@ -6,6 +6,8 @@ import HouseCrossSell from "../components/HouseCrossSell.astro";
 import FactsTable from "../components/FactsTable.astro";
 import Faq from "../components/Faq.astro";
 import FromHouse from "../components/FromHouse.astro";
+import MoreDetail from "../components/MoreDetail.astro";
+import { creditedDomains, hostname } from "../lib/facts";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
@@ -45,6 +47,11 @@ const description = (tr.tldr || tr.excerpt || tr.title || "").slice(0, 300);
 const bodyHtml = renderMarkdown(tr.body);
 const facts = tr.facts ?? [];
 const faq = tr.faq ?? [];
+
+// Only credit domains the facts table hasn't already named, so a page sourced
+// from a single site doesn't print that site twice.
+const credited = creditedDomains(facts);
+const extraSources = sources.filter((u) => !credited.has(hostname(u)));
 
 // Dated items describe an Event; everything else is a place you can visit.
 // event_start is authoritative — tag_key alone was never reliable.
@@ -143,22 +150,21 @@ if (faq.length > 0) {
         )}
       </div>
       <h1>{post.emoji} {tr.title}</h1>
+      {/* The excerpt stays on cards and in the meta description. Repeating it
+          here under the tldr gave the reader two paragraphs of the same thing. */}
       <p class="lead">{tr.tldr || tr.excerpt}</p>
-      {tr.tldr && tr.excerpt && tr.excerpt !== tr.tldr && <p class="sub">{tr.excerpt}</p>}
       <FactsTable lang={lang} facts={facts} />
-      {bodyHtml && <div class="prose" set:html={bodyHtml} />}
+      <MoreDetail lang={lang} html={bodyHtml} />
       <FromHouse lang={lang} text={tr.from_house} />
       <Faq lang={lang} items={faq} />
       <HouseCrossSell lang={lang} />
-      {sources.length > 0 && (
+      {extraSources.length > 0 && (
         <p class="attribution">
           {U.sourceNote}:
-          {sources.map((u, i) => (
+          {extraSources.map((u, i) => (
             <>
               {i > 0 && <span aria-hidden="true"> · </span>}
-              <a href={u} target="_blank" rel="noopener noreferrer nofollow">
-                {new URL(u).hostname.replace(/^www\./, "")}
-              </a>
+              <a href={u} target="_blank" rel="noopener noreferrer nofollow">{hostname(u)}</a>
             </>
           ))}
         </p>
@@ -224,33 +230,6 @@ if (faq.length > 0) {
     font-size: 19px;
     line-height: 1.6;
     margin-bottom: 14px;
-  }
-  .sub {
-    font-size: 16px;
-    line-height: 1.7;
-    color: var(--storm);
-    margin-bottom: 22px;
-  }
-  .prose :global(h2) {
-    font-size: 22px;
-    margin: 32px 0 12px;
-  }
-  .prose :global(h3) {
-    font-size: 18px;
-    margin: 24px 0 10px;
-  }
-  .prose :global(p) {
-    font-size: 16px;
-    line-height: 1.75;
-    margin-bottom: 16px;
-  }
-  .prose :global(ul) {
-    margin: 0 0 16px 20px;
-    font-size: 16px;
-    line-height: 1.75;
-  }
-  .prose :global(li) {
-    margin-bottom: 6px;
   }
   .attribution,
   .updated {

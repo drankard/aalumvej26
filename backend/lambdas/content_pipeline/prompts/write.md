@@ -47,9 +47,11 @@ Spend the words where they last.
 - `tldr`: 30–50 words. A direct, standalone answer to the question the title
   implies — readable on its own with no surrounding page. Lead with the answer,
   not a wind-up.
-- `body`: 250–400 words of markdown. Use `##` subheadings. Cover what it is, what
-  you actually do there, when to go, and what to know before you set off. No
-  concluding paragraph that restates the intro.
+- `body`: 200–300 words of markdown, in two or three `##` sections. Cover what it
+  is, what you actually do there, when to go, and what to know before you set
+  off. No concluding paragraph that restates the intro, and no sentence that
+  only exists to reach a word count — this block is collapsed behind a "read
+  more" control on the page, so padding buys nothing and costs trust.
 - `facts`: up to 10 rows (see "Facts" — the rules there are absolute).
 - `faq`: 3–5 entries. Real questions a guest would type into a search box
   ("Kan man komme op i fyret?", "Er der toilet?", "Hvor lang tid tager turen?").

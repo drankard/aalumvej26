@@ -2,7 +2,7 @@
 // Practical facts as a table. This is the block answer engines lift most
 // readily, and the only one where "distance from the house" — information that
 // exists nowhere else — sits next to the source's own details.
-import { publishableFacts } from "../lib/facts";
+import { hostname, publishableFacts } from "../lib/facts";
 import { ui, type Lang } from "../lib/i18n";
 import type { Fact } from "../lib/types";
 
@@ -38,9 +38,7 @@ const sources = [...new Set(rows.map((f) => f.source_url).filter((u): u is strin
         {sources.map((u, i) => (
           <>
             {i > 0 && <span aria-hidden="true"> · </span>}
-            <a href={u} target="_blank" rel="noopener noreferrer nofollow">
-              {new URL(u).hostname.replace(/^www\./, "")}
-            </a>
+            <a href={u} target="_blank" rel="noopener noreferrer nofollow">{hostname(u)}</a>
           </>
         ))}
       </p>

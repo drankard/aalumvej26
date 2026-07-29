@@ -48,6 +48,7 @@ const UI = {
     houseNav: "Huset",
     houseTitle: "Stråtækt feriehus i Agger — 200 m fra Vesterhavet",
     bookCta: "Se ledige uger og book",
+    moreAbout: "Mere om stedet",
   },
   en: {
     backHome: "Home",
@@ -72,6 +73,7 @@ const UI = {
     houseNav: "The house",
     houseTitle: "Thatched holiday cottage in Agger — 200 m from the North Sea",
     bookCta: "See available weeks and book",
+    moreAbout: "More about this place",
   },
   de: {
     backHome: "Startseite",
@@ -96,6 +98,7 @@ const UI = {
     houseNav: "Das Haus",
     houseTitle: "Reetgedecktes Ferienhaus in Agger — 200 m von der Nordsee",
     bookCta: "Freie Wochen ansehen und buchen",
+    moreAbout: "Mehr über den Ort",
   },
 } as const;
 

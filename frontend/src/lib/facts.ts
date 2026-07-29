@@ -15,3 +15,19 @@ export const isSourced = (f: Fact): boolean =>
 /** Facts safe to publish: non-empty and traceable to a source or to the site. */
 export const publishableFacts = (facts: Fact[] | undefined): Fact[] =>
   (facts || []).filter((f) => f?.label?.trim() && f?.value?.trim() && isSourced(f));
+
+/**
+ * Display hostname, or "" if the URL won't parse. Never throws: a malformed
+ * source URL in the data must not take the whole static build down.
+ */
+export function hostname(url: string | null | undefined): string {
+  try {
+    return new URL(String(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+/** Domains already credited beside the facts table, so the page needn't repeat them. */
+export const creditedDomains = (facts: Fact[] | undefined): Set<string> =>
+  new Set(publishableFacts(facts).map((f) => hostname(f.source_url)).filter(Boolean));
