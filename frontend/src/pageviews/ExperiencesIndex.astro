@@ -3,8 +3,11 @@ import Base from "../layouts/Base.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import ExperienceCard from "../components/ExperienceCard.astro";
 import HouseCrossSell from "../components/HouseCrossSell.astro";
+import Faq from "../components/Faq.astro";
 import { getContent } from "../lib/content";
+import { getHub } from "../lib/hubs";
 import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
+import { renderMarkdown } from "../lib/markdown";
 import { SITE } from "../lib/site";
 import type { CategoryTranslation, Post } from "../lib/types";
 
@@ -30,11 +33,18 @@ const basePath = category ? `/oplevelser/kategori/${category.id}/` : "/oplevelse
 const title = category
   ? `${category.icon} ${catLabel} — ${L.nav.experiences} · Nationalpark Thy`
   : `${U.allExperiences} — Aalumvej 26, Agger · Nationalpark Thy`;
-const description = category
-  ? `${catLabel}: ${U.intro}`
-  : `${U.allExperiences}: ${U.intro}`;
+// Hub guide copy — the reason these URLs can rank for the broad, high-volume
+// queries that no single dated experience page can answer.
+const hub = getHub(categoryId, lang);
+const hubBodyHtml = renderMarkdown(hub?.body);
 
-const jsonLd = [
+const description = hub
+  ? hub.intro.slice(0, 300)
+  : category
+    ? `${catLabel}: ${U.intro}`
+    : `${U.allExperiences}: ${U.intro}`;
+
+const jsonLd: object[] = [
   {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -47,6 +57,18 @@ const jsonLd = [
     })),
   },
 ];
+
+if (hub) {
+  jsonLd.push({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: hub.faq.map((f) => ({
+      "@type": "Question",
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
+    })),
+  });
+}
 
 const trail = category
   ? [{ label: L.nav.experiences, href: `${p}/oplevelser/` }, { label: catLabel! }]
@@ -61,7 +83,7 @@ const trail = category
       <h1>
         {category ? `${category.icon} ${catLabel}` : U.allExperiences}
       </h1>
-      <p class="intro">{U.intro}</p>
+      <p class="intro">{hub?.intro ?? U.intro}</p>
       <div class="chips">
         <a class:list={["chip", { active: !category }]} href={`${p}/oplevelser/`}>
           ◈ {L.experiences.allFilter}
@@ -80,6 +102,8 @@ const trail = category
           <ExperienceCard post={post} lang={lang} slug={postSlugs.get(post.id)!} idx={i} />
         ))}
       </div>
+      {hubBodyHtml && <div class="prose" set:html={hubBodyHtml} />}
+      {hub && <Faq lang={lang} items={hub.faq} />}
       {!category && (
         <p class="archive-link">
           <a href={`${p}/oplevelser/arkiv/`}>{L.experiences.showArchive}</a>
@@ -131,6 +155,24 @@ const trail = category
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 20px;
+  }
+  .prose {
+    max-width: 760px;
+    margin-top: 48px;
+  }
+  .prose :global(h2) {
+    font-size: 22px;
+    margin: 32px 0 12px;
+  }
+  .prose :global(p) {
+    font-size: 16px;
+    line-height: 1.75;
+    margin-bottom: 16px;
+  }
+  .prose :global(ul) {
+    margin: 0 0 16px 20px;
+    font-size: 16px;
+    line-height: 1.75;
   }
   .archive-link {
     text-align: center;

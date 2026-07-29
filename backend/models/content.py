@@ -3,10 +3,38 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
+class Fact(BaseModel):
+    """One row of a page's facts table.
+
+    Every fact must be traceable: either it was extracted from a crawled page
+    (`source_url` set) or the site derived it itself (`computed=True`, e.g.
+    distance from the house). The pipeline's write-stage gate drops rows that
+    satisfy neither — we never publish an unsourced claim about someone else's
+    opening hours or prices.
+    """
+
+    label: str
+    value: str
+    source_url: str | None = None
+    computed: bool = False
+
+
+class FaqItem(BaseModel):
+    question: str
+    answer: str
+
+
 class PostTranslation(BaseModel):
     title: str
     excerpt: str
     date: str
+    # Depth fields. All default-empty so items written before the content
+    # expansion still parse; pages render each block only when it's populated.
+    tldr: str = ""
+    body: str = ""
+    facts: list[Fact] = []
+    faq: list[FaqItem] = []
+    from_house: str = ""
 
 
 class Post(BaseModel):
@@ -19,6 +47,10 @@ class Post(BaseModel):
     status: str
     relevance_score: int = 0
     source_urls: list[str] = []
+    # Written by the pipeline since day one but previously absent here, so the
+    # values never reached the frontend and dated posts couldn't emit Event schema.
+    event_start: str | None = None
+    event_end: str | None = None
     translations: dict[str, PostTranslation]
     created_at: str
     updated_at: str
@@ -33,6 +65,8 @@ class PostCreate(BaseModel):
     status: str = "published"
     relevance_score: int = 0
     source_urls: list[str] = []
+    event_start: str | None = None
+    event_end: str | None = None
     translations: dict[str, PostTranslation]
 
 
@@ -45,6 +79,8 @@ class PostUpdate(BaseModel):
     status: str | None = None
     relevance_score: int | None = None
     source_urls: list[str] | None = None
+    event_start: str | None = None
+    event_end: str | None = None
     translations: dict[str, PostTranslation] | None = None
 
 
@@ -72,6 +108,11 @@ class AreaTranslation(BaseModel):
     name: str
     dist: str
     desc: str
+    # Same depth fields as posts; see PostTranslation.
+    body: str = ""
+    facts: list[Fact] = []
+    faq: list[FaqItem] = []
+    from_house: str = ""
 
 
 class Area(BaseModel):

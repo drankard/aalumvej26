@@ -1,0 +1,55 @@
+---
+// Q&A block. Each pair is an independent citation candidate, so answers are
+// rendered in full rather than behind a collapsed <details> — engines and
+// crawlers should see the text without executing anything.
+import { ui, type Lang } from "../lib/i18n";
+import type { FaqItem } from "../lib/types";
+
+interface Props {
+  lang: Lang;
+  items: FaqItem[];
+  heading?: string;
+}
+
+const { lang, items, heading } = Astro.props;
+const U = ui(lang);
+const rows = (items || []).filter((f) => f?.question?.trim() && f?.answer?.trim());
+---
+
+{rows.length > 0 && (
+  <section class="faq">
+    <h2>{heading ?? U.faqHeading}</h2>
+    <dl>
+      {rows.map((f) => (
+        <>
+          <dt>{f.question}</dt>
+          <dd>{f.answer}</dd>
+        </>
+      ))}
+    </dl>
+  </section>
+)}
+
+<style>
+  .faq {
+    margin: 40px 0;
+  }
+  .faq h2 {
+    font-size: 22px;
+    margin-bottom: 14px;
+  }
+  dt {
+    font-weight: 600;
+    margin-top: 18px;
+    font-size: 16px;
+  }
+  dt:first-of-type {
+    margin-top: 0;
+  }
+  dd {
+    margin: 6px 0 0;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--storm);
+  }
+</style>

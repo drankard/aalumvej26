@@ -3,9 +3,15 @@ import Base from "../layouts/Base.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import ExperienceCard from "../components/ExperienceCard.astro";
 import HouseCrossSell from "../components/HouseCrossSell.astro";
+import FactsTable from "../components/FactsTable.astro";
+import Faq from "../components/Faq.astro";
+import FromHouse from "../components/FromHouse.astro";
+import MoreDetail from "../components/MoreDetail.astro";
+import { creditedDomains, hostname } from "../lib/facts";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
-import { OG_IMAGE, SITE, TAG_COLORS } from "../lib/site";
+import { renderMarkdown } from "../lib/markdown";
+import { SITE, TAG_COLORS } from "../lib/site";
 import type { CategoryTranslation, Post, PostTranslation } from "../lib/types";
 
 interface Props {
@@ -34,20 +40,67 @@ const related = posts
   .slice(0, 3);
 
 const basePath = `/oplevelser/${slug}/`;
+const canonical = `${SITE}${p}${basePath}`;
 const title = `${tr.title} — ${L.nav.experiences} · Nationalpark Thy`;
-const description = (tr.excerpt || tr.title || "").slice(0, 300);
+const description = (tr.tldr || tr.excerpt || tr.title || "").slice(0, 300);
 
-const jsonLd = [
+const bodyHtml = renderMarkdown(tr.body);
+const facts = tr.facts ?? [];
+const faq = tr.faq ?? [];
+
+// Only credit domains the facts table hasn't already named, so a page sourced
+// from a single site doesn't print that site twice.
+const credited = creditedDomains(facts);
+const extraSources = sources.filter((u) => !credited.has(hostname(u)));
+
+// Dated items describe an Event; everything else is a place you can visit.
+// event_start is authoritative — tag_key alone was never reliable.
+const isEvent = Boolean(post.event_start) || post.tag_key === "event" || post.tag_key === "bigEvent";
+
+// The region is the most specific location we can assert truthfully: the
+// pipeline stores no venue address, and inventing one would be the same error
+// as inventing an opening time.
+const regionPlace = {
+  "@type": "Place",
+  name: "Nationalpark Thy",
+  address: { "@type": "PostalAddress", addressRegion: "Nordjylland", addressCountry: "DK" },
+};
+
+const primaryEntity =
+  isEvent && post.event_start
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        name: tr.title,
+        description: tr.tldr || tr.excerpt || "",
+        url: canonical,
+        startDate: post.event_start,
+        ...(post.event_end ? { endDate: post.event_end } : {}),
+        eventStatus: "https://schema.org/EventScheduled",
+        eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+        location: regionPlace,
+      }
+    : {
+        "@context": "https://schema.org",
+        "@type": "TouristAttraction",
+        name: tr.title,
+        description: tr.tldr || tr.excerpt || "",
+        url: canonical,
+        touristType: catLabel,
+        containedInPlace: regionPlace,
+      };
+
+const jsonLd: object[] = [
+  primaryEntity,
   {
     "@context": "https://schema.org",
-    "@type": "TouristAttraction",
+    "@type": "WebPage",
+    url: canonical,
     name: tr.title,
-    description: tr.excerpt || "",
-    url: `${SITE}${p}${basePath}`,
-    image: OG_IMAGE,
-    isAccessibleForFree: true,
-    touristType: catLabel,
-    containedInPlace: { "@type": "Place", name: "Nationalpark Thy" },
+    inLanguage: lang,
+    datePublished: post.created_at,
+    dateModified: post.updated_at,
+    isPartOf: { "@type": "WebSite", name: "Aalumvej 26", url: `${SITE}/` },
   },
   {
     "@context": "https://schema.org",
@@ -55,10 +108,22 @@ const jsonLd = [
     itemListElement: [
       { "@type": "ListItem", position: 1, name: U.backHome, item: `${SITE}${p}/` },
       { "@type": "ListItem", position: 2, name: L.nav.experiences, item: `${SITE}${p}/oplevelser/` },
-      { "@type": "ListItem", position: 3, name: tr.title, item: `${SITE}${p}${basePath}` },
+      { "@type": "ListItem", position: 3, name: tr.title, item: canonical },
     ],
   },
 ];
+
+if (faq.length > 0) {
+  jsonLd.push({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((f) => ({
+      "@type": "Question",
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
+    })),
+  });
+}
 ---
 
 <Base
@@ -85,32 +150,29 @@ const jsonLd = [
         )}
       </div>
       <h1>{post.emoji} {tr.title}</h1>
-      <p class="lead">{tr.excerpt}</p>
-      {post.url && (
-        <p>
-          <a
-            class="btn btn-rust"
-            href={post.url}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-          >
-            {U.readMoreSource} →
-          </a>
+      {/* The excerpt stays on cards and in the meta description. Repeating it
+          here under the tldr gave the reader two paragraphs of the same thing. */}
+      <p class="lead">{tr.tldr || tr.excerpt}</p>
+      <FactsTable lang={lang} facts={facts} />
+      <MoreDetail lang={lang} html={bodyHtml} />
+      <FromHouse lang={lang} text={tr.from_house} />
+      <Faq lang={lang} items={faq} />
+      <HouseCrossSell lang={lang} />
+      {extraSources.length > 0 && (
+        <p class="attribution">
+          {U.sourceNote}:
+          {extraSources.map((u, i) => (
+            <>
+              {i > 0 && <span aria-hidden="true"> · </span>}
+              <a href={u} target="_blank" rel="noopener noreferrer nofollow">{hostname(u)}</a>
+            </>
+          ))}
         </p>
       )}
-      {sources.length > 0 && (
-        <section class="sources">
-          <h2>{U.sources}</h2>
-          <ul>
-            {sources.map((u) => (
-              <li>
-                <a href={u} target="_blank" rel="noopener noreferrer nofollow">{u}</a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <HouseCrossSell lang={lang} />
+      <p class="updated">
+        {U.updatedLabel}:
+        <time datetime={post.updated_at.slice(0, 10)}>{post.updated_at.slice(0, 10)}</time>
+      </p>
       {related.length > 0 && (
         <section class="related">
           <h2>{U.related}</h2>
@@ -165,25 +227,22 @@ const jsonLd = [
     margin-bottom: 14px;
   }
   .lead {
-    font-size: 16px;
-    line-height: 1.7;
-    margin-bottom: 22px;
+    font-size: 19px;
+    line-height: 1.6;
+    margin-bottom: 14px;
   }
-  .sources {
-    margin-top: 36px;
+  .attribution,
+  .updated {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--driftwood);
   }
-  .sources h2,
+  .attribution a {
+    margin-left: 4px;
+  }
   .related h2 {
     font-size: 22px;
     margin-bottom: 12px;
-  }
-  .sources ul {
-    list-style: none;
-    font-size: 13px;
-  }
-  .sources li {
-    margin-bottom: 6px;
-    overflow-wrap: anywhere;
   }
   .related {
     margin-top: 48px;

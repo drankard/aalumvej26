@@ -14,6 +14,7 @@ export const GET: APIRoute = async () => {
 > Charmerende stråtækt feriehus 200 m fra Vesterhavet i Agger, Nationalpark Thy, Danmark. Trilingual (da/en/de) guide to experiences and the surrounding area on the Danish west coast, plus booking of the holiday house.
 
 - Location: Ålumvej 26, 7770 Vestervig · Agger · Nationalpark Thy · Denmark
+- The house: ${SITE}/huset/ — 60 m², 2 bedrooms, sleeps 4, 200 m from the beach, one dog allowed
 - Booking: ${BOOKING}
 - Canonical site: ${SITE}/
 - Full content dump: ${SITE}/llms-full.txt

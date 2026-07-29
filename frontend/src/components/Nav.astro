@@ -13,7 +13,9 @@ const { lang, variant, basePath } = Astro.props;
 const L = loc(lang);
 const home = langPrefix(lang) || "/";
 const links = [
-  { href: `${home}#huset`, label: L.nav.house },
+  // Points at the dedicated house page rather than the home-page anchor, so the
+  // site's most commercially important URL gets sitewide internal linking.
+  { href: `${langPrefix(lang)}/huset/`, label: L.nav.house },
   { href: `${langPrefix(lang)}/oplevelser/`, label: L.nav.experiences },
   { href: `${langPrefix(lang)}/omraadet/`, label: L.nav.area },
 ];

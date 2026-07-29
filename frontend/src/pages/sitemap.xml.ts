@@ -30,9 +30,9 @@ export const GET: APIRoute = async () => {
 
   const entries: Entry[] = [
     { basePath: "/", priority: "1.0" },
+    { basePath: "/huset/", priority: "0.9" },
     { basePath: "/oplevelser/", priority: "0.8" },
     { basePath: "/omraadet/", priority: "0.8" },
-    { basePath: "/oplevelser/arkiv/", priority: "0.4" },
     ...categories
       .filter((c) => posts.some((p) => p.category === c.id))
       .map((c) => ({ basePath: `/oplevelser/kategori/${c.id}/`, priority: "0.6" })),

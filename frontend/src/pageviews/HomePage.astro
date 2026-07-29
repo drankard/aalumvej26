@@ -7,6 +7,7 @@ import AreaCard from "../components/AreaCard.astro";
 import { getContent } from "../lib/content";
 import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { SITE } from "../lib/site";
+import { HOUSE_ADDRESS, HOUSE_BEDROOMS, HOUSE_GEO, HOUSE_SLEEPS } from "../lib/house";
 
 interface Props {
   lang: Lang;
@@ -29,35 +30,38 @@ const descriptions: Record<Lang, string> = {
   de: "Charmantes reetgedecktes Ferienhaus nur 200m von der Nordsee in Agger, Nationalpark Thy. Erleben Sie Westjütlands wildeste Küste — Surfen, Natur, Austern und mehr.",
 };
 
+// Room count and pet policy previously contradicted the site's own copy
+// (it claimed 3 bedrooms and no pets; the house has 2 and allows one dog).
+// Both now derive from lib/house.ts so markup and visible text can't drift.
 const jsonLd = [
   {
     "@context": "https://schema.org",
     "@type": "LodgingBusiness",
+    "@id": `${SITE}/#house`,
     name: "Aalumvej 26",
     description: descriptions[lang],
-    url: `${SITE}${p}/`,
+    url: `${SITE}${p}/huset/`,
     image: `${SITE}/images/house/01-exterior.jpg`,
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: "Aalumvej 26",
-      addressLocality: "Agger",
-      postalCode: "7770",
-      addressRegion: "Nordjylland",
-      addressCountry: "DK",
-    },
-    geo: { "@type": "GeoCoordinates", latitude: 56.7925, longitude: 8.2647 },
-    amenityFeature: [
-      { "@type": "LocationFeatureSpecification", name: "3 soveværelser", value: true },
-      { "@type": "LocationFeatureSpecification", name: "Brændeovn", value: true },
-      { "@type": "LocationFeatureSpecification", name: "200m til havet", value: true },
-    ],
-    numberOfRooms: 3,
-    petsAllowed: false,
+    address: HOUSE_ADDRESS,
+    geo: { "@type": "GeoCoordinates", ...HOUSE_GEO },
+    numberOfRooms: HOUSE_BEDROOMS,
+    occupancy: { "@type": "QuantitativeValue", maxValue: HOUSE_SLEEPS },
+    petsAllowed: true,
     containedInPlace: {
       "@type": "Place",
       name: "Nationalpark Thy",
       url: "https://eng.nationalparkthy.dk",
     },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${SITE}/#website`,
+    name: "Aalumvej 26",
+    url: `${SITE}/`,
+    inLanguage: lang,
+    description: descriptions[lang],
+    publisher: { "@id": `${SITE}/#house` },
   },
 ];
 ---
