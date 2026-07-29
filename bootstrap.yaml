@@ -99,6 +99,15 @@ Resources:
                   - s3:PutBucketPublicAccessBlock
                   - s3:GetBucketAcl
                   - s3:PutBucketTagging
+                  # Required by the CloudFront access-logs bucket: standard
+                  # logging delivers via ACL, so that bucket must re-enable
+                  # object ACLs (BucketOwnerPreferred) and carry an expiry rule.
+                  # Without these the stack update fails and rolls back the
+                  # entire deploy, including the frontend publish.
+                  - s3:PutBucketOwnershipControls
+                  - s3:GetBucketOwnershipControls
+                  - s3:PutLifecycleConfiguration
+                  - s3:GetLifecycleConfiguration
                 Resource:
                   - arn:aws:s3:::aalumvej26-*
                   - arn:aws:s3:::aalumvej26-*/*

@@ -23,9 +23,21 @@ Parameters:
     Type: String
     Default: david@graveyard.dk
     Description: Email for content pipeline notifications and alarms
+  EnableAccessLogs:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      CloudFront access logs (the only way to see AI crawler traffic). Off by
+      default because it needs deploy-role permissions the live role does not
+      have yet: s3:PutBucketOwnershipControls and s3:PutLifecycleConfiguration.
+      Both are in bootstrap.yaml — apply them by running the harden-role
+      workflow with stage=apply-scoped, then set this to 'true'. Turning it on
+      before that fails the stack update and rolls back the whole deploy.
 
 Conditions:
   HasCertificate: !Not [!Equals [!Ref CertificateArn, '']]
+  WithAccessLogs: !Equals [!Ref EnableAccessLogs, 'true']
 
 Resources:
   AppTable:
@@ -461,12 +473,14 @@ Resources:
         # indexing.
         # Access logs are the only ground truth for AI crawler traffic: no answer
         # engine reports citations, and GPTBot/ClaudeBot/PerplexityBot fetches are
-        # invisible to Search Console. Without these, half the SEO work here has
-        # no measurable outcome.
-        Logging:
-          Bucket: !GetAtt LogsBucket.DomainName
-          Prefix: cloudfront/
-          IncludeCookies: false
+        # invisible to Search Console. Gated on EnableAccessLogs — see that
+        # parameter for the deploy-role permissions this needs first.
+        Logging: !If
+          - WithAccessLogs
+          - Bucket: !GetAtt LogsBucket.DomainName
+            Prefix: cloudfront/
+            IncludeCookies: false
+          - !Ref AWS::NoValue
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
@@ -475,8 +489,11 @@ Resources:
 
   # CloudFront standard logging delivers via ACL, so this bucket keeps ACLs
   # enabled (BucketOwnerPreferred) while staying fully private to the public.
+  # Setting OwnershipControls is precisely what the deploy role currently lacks
+  # permission to do, hence the condition.
   LogsBucket:
     Type: AWS::S3::Bucket
+    Condition: WithAccessLogs
     Properties:
       BucketName: !Sub aalumvej26-logs-${Stage}
       OwnershipControls:
@@ -526,6 +543,7 @@ Outputs:
   FrontendBucket:
     Value: !Ref FrontendBucket
   LogsBucket:
+    Condition: WithAccessLogs
     Description: CloudFront access logs — source for AI crawler traffic analysis
     Value: !Ref LogsBucket
   TableName:
