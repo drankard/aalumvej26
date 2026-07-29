@@ -459,11 +459,39 @@ Resources:
         # missing paths surface as real 404s (S3 website ErrorDocument serves
         # /404.html with a 404 status). This avoids soft-404s in search/AI
         # indexing.
+        # Access logs are the only ground truth for AI crawler traffic: no answer
+        # engine reports citations, and GPTBot/ClaudeBot/PerplexityBot fetches are
+        # invisible to Search Console. Without these, half the SEO work here has
+        # no measurable outcome.
+        Logging:
+          Bucket: !GetAtt LogsBucket.DomainName
+          Prefix: cloudfront/
+          IncludeCookies: false
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
         HttpVersion: http2and3
+
+  # CloudFront standard logging delivers via ACL, so this bucket keeps ACLs
+  # enabled (BucketOwnerPreferred) while staying fully private to the public.
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub aalumvej26-logs-${Stage}
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireAccessLogs
+            Status: Enabled
+            ExpirationInDays: 90
 
   FrontendBucket:
     Type: AWS::S3::Bucket
@@ -497,6 +525,9 @@ Outputs:
     Value: !GetAtt FrontendBucket.WebsiteURL
   FrontendBucket:
     Value: !Ref FrontendBucket
+  LogsBucket:
+    Description: CloudFront access logs — source for AI crawler traffic analysis
+    Value: !Ref LogsBucket
   TableName:
     Value: !Ref AppTable
   CloudFrontDomain:

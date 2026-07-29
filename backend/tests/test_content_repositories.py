@@ -104,6 +104,59 @@ def test_get_post(mock_db, post_repo):
     mock_db.get_item.assert_called_once_with({"pk": "POST", "sk": "POST#abc"})
 
 
+def test_get_post_carries_event_dates_through(mock_db, post_repo):
+    """The pipeline has always stored these; they were dropped on the way out,
+    so dated posts reached the frontend with nothing to build Event schema from."""
+    mock_db.get_item.return_value = {
+        "id": "abc", "category": "surf", "tag_key": "bigEvent", "url": "https://a.com",
+        "emoji": "🏆", "sort_order": 1, "status": "published",
+        "event_start": "2026-09-12", "event_end": "2026-09-13",
+        "translations": {"da": {"title": "T", "excerpt": "E", "date": "D"}},
+        "created_at": "2026-01-01", "updated_at": "2026-01-01",
+    }
+
+    result = post_repo.get("abc")
+
+    assert result is not None
+    assert (result.event_start, result.event_end) == ("2026-09-12", "2026-09-13")
+
+
+def test_get_post_without_event_dates_is_still_valid(mock_db, post_repo):
+    mock_db.get_item.return_value = {
+        "id": "abc", "category": "natur", "tag_key": "guide", "url": "https://a.com",
+        "emoji": "🥾", "sort_order": 1, "status": "published",
+        "translations": {"da": {"title": "T", "excerpt": "E", "date": "D"}},
+        "created_at": "2026-01-01", "updated_at": "2026-01-01",
+    }
+
+    result = post_repo.get("abc")
+
+    assert result is not None
+    assert result.event_start is None and result.event_end is None
+
+
+def test_post_depth_fields_round_trip(mock_db, post_repo):
+    mock_db.get_item.return_value = {
+        "id": "abc", "category": "natur", "tag_key": "guide", "url": "https://a.com",
+        "emoji": "🥾", "sort_order": 1, "status": "published",
+        "translations": {"da": {
+            "title": "T", "excerpt": "E", "date": "D",
+            "tldr": "Kort svar.", "body": "## H\n\nTekst.",
+            "facts": [{"label": "Højde", "value": "35 m", "source_url": "https://a.com"}],
+            "faq": [{"question": "Q?", "answer": "A."}],
+            "from_house": "Vi kører derud om eftermiddagen.",
+        }},
+        "created_at": "2026-01-01", "updated_at": "2026-01-01",
+    }
+
+    tr = post_repo.get("abc").translations["da"]
+
+    assert tr.tldr == "Kort svar."
+    assert tr.facts[0].source_url == "https://a.com"
+    assert tr.faq[0].question == "Q?"
+    assert tr.from_house == "Vi kører derud om eftermiddagen."
+
+
 def test_get_post_not_found(mock_db, post_repo):
     mock_db.get_item.return_value = None
 

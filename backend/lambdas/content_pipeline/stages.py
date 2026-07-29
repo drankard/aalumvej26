@@ -92,6 +92,25 @@ def _published_posts(state: RunState) -> list[dict]:
     return [p for p in state.posts if p.get("status") == "published"]
 
 
+# Translation fields the pipeline never authors. They are written by hand on the
+# site (first-hand notes about visiting from the house) and must survive any
+# automated rewrite of the surrounding copy.
+PRESERVED_TRANSLATION_FIELDS = ("from_house",)
+
+
+def merge_translations(existing: dict, incoming: dict) -> dict:
+    """Overlay `incoming` onto `existing`, carrying hand-written fields forward."""
+    merged: dict = {}
+    for lang, tr in (incoming or {}).items():
+        tr = dict(tr)
+        prev = (existing or {}).get(lang) or {}
+        for field in PRESERVED_TRANSLATION_FIELDS:
+            if prev.get(field) and not tr.get(field):
+                tr[field] = prev[field]
+        merged[lang] = tr
+    return merged
+
+
 def _existing_posts_block(state: RunState) -> str:
     lines = []
     for p in _published_posts(state):
@@ -466,7 +485,8 @@ def stage_area_audit(state: RunState, table, bedrock, time_left=lambda: 240.0) -
                 state.notes.append(f"Area {audit.area_id}: update skipped, incomplete languages {langs}.")
                 continue
             parts = ["translations = :t", "updated_at = :u"]
-            vals = {":t": audit.translations, ":u": now}
+            vals = {":t": merge_translations(area.get("translations", {}), audit.translations),
+                    ":u": now}
             if audit.url:
                 parts.append("#u = :url")
             expr_names = {"#u": "url"} if audit.url else None

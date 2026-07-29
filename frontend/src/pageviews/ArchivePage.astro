@@ -21,7 +21,10 @@ const basePath = "/oplevelser/arkiv/";
 const title = `${L.experiences.archiveLabel} — Aalumvej 26 · Nationalpark Thy`;
 ---
 
-<Base lang={lang} title={title} description={U.archiveIntro} basePath={basePath}>
+{/* Kept for readers and internal linking, but out of the index: the page is a
+    wall of outbound links to events that have already happened, and indexing it
+    spends crawl budget on content that can never be the best answer to anything. */}
+<Base lang={lang} title={title} description={U.archiveIntro} basePath={basePath} noindex>
   <main class="page">
     <div class="container">
       <Breadcrumbs

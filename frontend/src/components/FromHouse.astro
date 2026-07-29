@@ -1,0 +1,47 @@
+---
+// First-hand notes about reaching this place from Ålumvej 26.
+//
+// Hand-written, never pipeline-generated — the content pipeline preserves this
+// field across rewrites (see PRESERVED_TRANSLATION_FIELDS in stages.py). It is
+// the one block on the page that no other site can reproduce, which is exactly
+// what makes the page worth citing rather than the source it summarises.
+import { ui, type Lang } from "../lib/i18n";
+
+interface Props {
+  lang: Lang;
+  text?: string;
+}
+
+const { lang, text } = Astro.props;
+const U = ui(lang);
+const body = (text || "").trim();
+---
+
+{body && (
+  <aside class="from-house">
+    <h2>{U.fromHouseHeading}</h2>
+    <p>{body}</p>
+  </aside>
+)}
+
+<style>
+  .from-house {
+    margin: 36px 0;
+    padding: 22px 24px;
+    background: rgba(122, 139, 92, 0.08);
+    border-left: 3px solid var(--sea, #7a8b5c);
+    border-radius: 4px;
+  }
+  .from-house h2 {
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--driftwood);
+    margin-bottom: 10px;
+  }
+  .from-house p {
+    font-size: 16px;
+    line-height: 1.7;
+    margin: 0;
+  }
+</style>

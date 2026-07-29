@@ -3,9 +3,13 @@ import Base from "../layouts/Base.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import AreaCard from "../components/AreaCard.astro";
 import HouseCrossSell from "../components/HouseCrossSell.astro";
+import FactsTable from "../components/FactsTable.astro";
+import Faq from "../components/Faq.astro";
+import FromHouse from "../components/FromHouse.astro";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
-import { OG_IMAGE, SITE } from "../lib/site";
+import { renderMarkdown } from "../lib/markdown";
+import { SITE } from "../lib/site";
 import type { Area, AreaTranslation } from "../lib/types";
 
 interface Props {
@@ -24,18 +28,36 @@ const tr = pickTr<AreaTranslation>(area.translations, lang);
 const others = areas.filter((a) => a.id !== area.id).slice(0, 3);
 
 const basePath = `/omraadet/${slug}/`;
+const canonical = `${SITE}${p}${basePath}`;
 const title = `${tr.name} — ${L.nav.area} · Agger, Thy`;
 const description = (tr.desc || tr.name || "").slice(0, 300);
 
-const jsonLd = [
+const bodyHtml = renderMarkdown(tr.body);
+const facts = tr.facts ?? [];
+const faq = tr.faq ?? [];
+
+const jsonLd: object[] = [
   {
     "@context": "https://schema.org",
     "@type": "TouristAttraction",
     name: tr.name,
     description: tr.desc || "",
-    url: `${SITE}${p}${basePath}`,
-    image: OG_IMAGE,
-    containedInPlace: { "@type": "Place", name: "Nationalpark Thy" },
+    url: canonical,
+    containedInPlace: {
+      "@type": "Place",
+      name: "Nationalpark Thy",
+      address: { "@type": "PostalAddress", addressRegion: "Nordjylland", addressCountry: "DK" },
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    url: canonical,
+    name: tr.name,
+    inLanguage: lang,
+    datePublished: area.created_at,
+    dateModified: area.updated_at,
+    isPartOf: { "@type": "WebSite", name: "Aalumvej 26", url: `${SITE}/` },
   },
   {
     "@context": "https://schema.org",
@@ -43,10 +65,22 @@ const jsonLd = [
     itemListElement: [
       { "@type": "ListItem", position: 1, name: U.backHome, item: `${SITE}${p}/` },
       { "@type": "ListItem", position: 2, name: L.nav.area, item: `${SITE}${p}/omraadet/` },
-      { "@type": "ListItem", position: 3, name: tr.name, item: `${SITE}${p}${basePath}` },
+      { "@type": "ListItem", position: 3, name: tr.name, item: canonical },
     ],
   },
 ];
+
+if (faq.length > 0) {
+  jsonLd.push({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((f) => ({
+      "@type": "Question",
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
+    })),
+  });
+}
 ---
 
 <Base
@@ -68,19 +102,23 @@ const jsonLd = [
       </div>
       <h1>{tr.name}</h1>
       <p class="lead">{tr.desc}</p>
+      <FactsTable lang={lang} facts={facts} />
+      {bodyHtml && <div class="prose" set:html={bodyHtml} />}
+      <FromHouse lang={lang} text={tr.from_house} />
+      <Faq lang={lang} items={faq} />
+      <HouseCrossSell lang={lang} />
       {area.url && (
-        <p>
-          <a
-            class="btn btn-rust"
-            href={area.url}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-          >
-            {U.readMoreSource} →
+        <p class="attribution">
+          {U.sourceNote}:
+          <a href={area.url} target="_blank" rel="noopener noreferrer nofollow">
+            {new URL(area.url).hostname.replace(/^www\./, "")}
           </a>
         </p>
       )}
-      <HouseCrossSell lang={lang} />
+      <p class="updated">
+        {U.updatedLabel}:
+        <time datetime={area.updated_at.slice(0, 10)}>{area.updated_at.slice(0, 10)}</time>
+      </p>
       {others.length > 0 && (
         <section class="related">
           <h2>{U.allAreas}</h2>
@@ -125,9 +163,39 @@ const jsonLd = [
     margin-bottom: 14px;
   }
   .lead {
-    font-size: 16px;
-    line-height: 1.7;
+    font-size: 19px;
+    line-height: 1.6;
     margin-bottom: 22px;
+  }
+  .prose :global(h2) {
+    font-size: 22px;
+    margin: 32px 0 12px;
+  }
+  .prose :global(h3) {
+    font-size: 18px;
+    margin: 24px 0 10px;
+  }
+  .prose :global(p) {
+    font-size: 16px;
+    line-height: 1.75;
+    margin-bottom: 16px;
+  }
+  .prose :global(ul) {
+    margin: 0 0 16px 20px;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  .prose :global(li) {
+    margin-bottom: 6px;
+  }
+  .attribution,
+  .updated {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--driftwood);
+  }
+  .attribution a {
+    margin-left: 4px;
   }
   .related {
     margin-top: 48px;

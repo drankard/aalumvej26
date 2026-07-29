@@ -8,6 +8,8 @@ Current date: ${current_date} · Season: ${season}
 
 For EVERY accepted candidate below, produce one post: title_ref (the candidate's title copied EXACTLY as given), category, tag_key, url (the candidate's source_url), emoji, event_start/event_end copied from the candidate, and translations for **da, en, de**.
 
+Each translation carries `title`, `excerpt`, `date` plus the depth fields `tldr`, `body`, `facts` and `faq`. How much depth to write depends on whether the candidate is evergreen — see "Depth" below.
+
 ## Tag keys (exactly one)
 
 event (dated events) · guide (evergreen how-tos/routes) · activity (bookable experiences) · openNow (just opened / new season) · seasonBest (at its peak now) · kidFriendly · natureGem · localFavorite · culturalHistory · bigEvent (major multi-day)
@@ -32,6 +34,57 @@ event (dated events) · guide (evergreen how-tos/routes) · activity (bookable e
 - surf: skill level? rental available? season?
 - born: age range? free/paid? indoor/outdoor?
 - events: tickets? family-friendly? free?
+
+## Depth
+
+How much to write depends on whether the item survives the season. A dated event
+is worthless six weeks after it ends; an evergreen place compounds for years.
+Spend the words where they last.
+
+**Evergreen candidates** (`evergreen=true`, or tag_key `guide` / `activity` /
+`natureGem` / `localFavorite` / `culturalHistory` / `kidFriendly`):
+
+- `tldr`: 30–50 words. A direct, standalone answer to the question the title
+  implies — readable on its own with no surrounding page. Lead with the answer,
+  not a wind-up.
+- `body`: 250–400 words of markdown. Use `##` subheadings. Cover what it is, what
+  you actually do there, when to go, and what to know before you set off. No
+  concluding paragraph that restates the intro.
+- `facts`: up to 10 rows (see "Facts" — the rules there are absolute).
+- `faq`: 3–5 entries. Real questions a guest would type into a search box
+  ("Kan man komme op i fyret?", "Er der toilet?", "Hvor lang tid tager turen?").
+  Answers 20–50 words, each answering completely on its own.
+
+**Dated events** (`event` / `bigEvent`, or any candidate with an `event_start`):
+
+- `tldr`: 30–40 words.
+- `body`: leave empty (`""`). Do not write an essay about a weekend that will be
+  over before most readers see it.
+- `facts`: practical rows only — dates, venue, tickets, price, age suitability.
+- `faq`: 0–2 entries, only if the source genuinely answers something non-obvious.
+
+## Facts — provenance is mandatory
+
+Every fact row is a claim about somebody else's business: their opening hours,
+their prices, their age limits. Publishing a wrong one in three languages is
+worse than publishing nothing.
+
+Each row is `{label, value, source_url, computed}`:
+
+- `source_url` — the candidate's `source_url`, and ONLY if that source's `details`
+  text actually states the fact. Copy the value, don't reconstruct it.
+- `computed: true` — reserved for facts the site derives itself (distance and
+  drive time from Ålumvej 26). Set `source_url` to null for these.
+- **If the source does not state it, omit the row entirely.** Do not estimate, do
+  not fall back on general knowledge, do not infer a price from a similar
+  attraction, do not write "typisk 30–50 kr." or "ca. 2 timer". A short honest
+  table beats a full invented one.
+
+Rows without a `source_url` and without `computed: true` are discarded before
+publication, so a guessed row is wasted output, not a shortcut.
+
+Label facts in the target language ("Afstand" / "Distance" / "Entfernung") and
+keep values short enough to read in a table cell.
 
 ## Accepted candidates
 
