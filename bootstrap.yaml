@@ -216,23 +216,64 @@ Resources:
                   - acm:DescribeCertificate
                   - acm:ListCertificates
                 Resource: '*'
-              - Sid: IamManageAppRolesOnly
+              # Creating or re-policying an app role is only safe if the result
+              # carries the permissions boundary — otherwise this statement plus
+              # iam:PassRole below is a complete escalation path (create role,
+              # attach AdministratorAccess, pass it to a Lambda). The condition
+              # makes the boundary mandatory rather than conventional.
+              # PutRolePermissionsBoundary is in here too: without the condition
+              # it could swap our ceiling for a permissive one (even an
+              # AWS-managed policy) and reopen the hole this is meant to close.
+              - Sid: IamManageAppRolesWithinBoundary
                 Effect: Allow
                 Action:
                   - iam:CreateRole
+                  - iam:PutRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:PutRolePermissionsBoundary
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/aalumvej26-*
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Sub arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary
+              # Actions that cannot raise privilege, so no boundary condition.
+              - Sid: IamReadAndCleanupAppRoles
+                Effect: Allow
+                Action:
                   - iam:DeleteRole
                   - iam:GetRole
                   - iam:UpdateAssumeRolePolicy
-                  - iam:PutRolePolicy
                   - iam:DeleteRolePolicy
                   - iam:GetRolePolicy
                   - iam:ListRolePolicies
-                  - iam:AttachRolePolicy
                   - iam:DetachRolePolicy
                   - iam:ListAttachedRolePolicies
                   - iam:TagRole
                   - iam:UntagRole
                 Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/aalumvej26-*
+              # Managing the boundary policy document itself. Scoped to the
+              # aalumvej26-* policy namespace so CI cannot mint arbitrary
+              # managed policies to attach elsewhere.
+              - Sid: IamManageBoundaryPolicy
+                Effect: Allow
+                Action:
+                  - iam:CreatePolicy
+                  - iam:CreatePolicyVersion
+                  - iam:DeletePolicyVersion
+                  - iam:GetPolicy
+                  - iam:GetPolicyVersion
+                  - iam:ListPolicyVersions
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-*
+              # Stripping a boundary would undo the control above, so deny it.
+              # This is safe to apply at any stage and does not trap us: if a
+              # boundary change ever breaks the app, recovery is to publish a
+              # wider boundary version (iam:CreatePolicyVersion above), not to
+              # detach the boundary. That keeps the escape hatch reachable from
+              # CI alone while making removal impossible.
+              - Sid: NeverRemoveBoundary
+                Effect: Deny
+                Action:
+                  - iam:DeleteRolePermissionsBoundary
+                Resource: '*'
               - Sid: IamPassAppRolesToLambda
                 Effect: Allow
                 Action:
@@ -257,11 +298,24 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: codebuild.amazonaws.com
-              - Sid: NeverModifySelf
-                Effect: Deny
-                Action:
-                  - iam:*
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/${GitHubRepo}-github-deploy
+              # NeverModifySelf (Deny iam:* on this role) was removed deliberately.
+              #
+              # It never closed the escalation path it appeared to: the role could
+              # already create an aalumvej26-* role, attach AdministratorAccess and
+              # pass it to a Lambda. The boundary conditions above close that for
+              # real. Meanwhile the self-Deny made every new resource type an admin
+              # task, which is what silently broke two deploys in eight days — the
+              # role's live policy drifted from this file and nothing could resync
+              # it automatically.
+              #
+              # Self-modification is now permitted so deploy.yml can resync the
+              # role on every push to main, making drift structurally impossible.
+              # The control on that path is review: it requires a commit on main,
+              # and the trust policy only admits refs/heads/main.
+              #
+              # To tighten further, split this into an unprivileged deploy role plus
+              # a separate IAM-managing role assumable only from a workflow bound to
+              # a protected GitHub Environment. See .github/policies/README.md.
 
 Outputs:
   DeployRoleArn:

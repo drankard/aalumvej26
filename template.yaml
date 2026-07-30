@@ -7,6 +7,11 @@ Globals:
     Timeout: 30
     Runtime: python3.12
     MemorySize: 256
+    # PermissionsBoundary is deliberately NOT set here. It is a valid Globals
+    # property, but whether an Fn::If resolving to AWS::NoValue survives the
+    # Globals merge can only be verified by a real deploy — sam build does not
+    # run the Serverless transform locally. It is set per-function below instead,
+    # which is plain resource-level behaviour.
 
 Parameters:
   Stage:
@@ -34,10 +39,21 @@ Parameters:
       Both are in bootstrap.yaml — apply them by running the harden-role
       workflow with stage=apply-scoped, then set this to 'true'. Turning it on
       before that fails the stack update and rolls back the whole deploy.
+  EnforceBoundary:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      Attach the aalumvej26-boundary permissions boundary to every role in this
+      stack. Driven by the ENFORCE_BOUNDARY repository variable via deploy.yml,
+      so it is switched on from the GitHub UI. Requires the boundary policy to
+      exist first: run the harden-role workflow with stage=create-boundary.
+      Enabling it before the policy exists fails role creation and rolls back.
 
 Conditions:
   HasCertificate: !Not [!Equals [!Ref CertificateArn, '']]
   WithAccessLogs: !Equals [!Ref EnableAccessLogs, 'true']
+  WithBoundary: !Equals [!Ref EnforceBoundary, 'true']
 
 Resources:
   AppTable:
@@ -59,6 +75,7 @@ Resources:
   AppFunction:
     Type: AWS::Serverless::Function
     Properties:
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       FunctionName: !Sub aalumvej26-${Stage}
       CodeUri: backend/
       Handler: handler.lambda_handler
@@ -94,6 +111,7 @@ Resources:
   ContentPipelineFunction:
     Type: AWS::Serverless::Function
     Properties:
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       FunctionName: !Sub aalumvej26-content-pipeline-${Stage}
       CodeUri: backend/lambdas/content_pipeline/
       Handler: app.lambda_handler
@@ -140,6 +158,7 @@ Resources:
   PipelineCanaryFunction:
     Type: AWS::Serverless::Function
     Properties:
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       FunctionName: !Sub aalumvej26-pipeline-canary-${Stage}
       CodeUri: backend/lambdas/pipeline_canary/
       Handler: canary.lambda_handler
@@ -232,6 +251,9 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub aalumvej26-content-rebuild-${Stage}
+      # Explicit role, so the boundary must be declared here too — the Globals
+      # entry only covers SAM-generated function roles.
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
