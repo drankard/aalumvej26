@@ -40,6 +40,18 @@ Parameters:
       step landed — so leave this off for that run, confirm the deploy is green,
       then set the variable to 'true'. Enabling it in the same run that first
       grants the permissions risks racing IAM's eventual consistency.
+  EnableContentRebuild:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      The CodeBuild project the content pipeline triggers to republish the site.
+      Off by default because creating it needs codebuild:CreateProject, which the
+      live deploy role does not have, and that role carries an explicit Deny on
+      modifying itself — so no CI path can grant it. These resources have been
+      absent from the deployed stack since they were rolled back on 21 Jul, so
+      'false' matches production reality rather than degrading it. Turn on once
+      an account admin has applied bootstrap.yaml to the role.
   EnforceBoundary:
     Type: String
     AllowedValues: ['true', 'false']
@@ -55,6 +67,7 @@ Conditions:
   HasCertificate: !Not [!Equals [!Ref CertificateArn, '']]
   WithAccessLogs: !Equals [!Ref EnableAccessLogs, 'true']
   WithBoundary: !Equals [!Ref EnforceBoundary, 'true']
+  WithContentRebuild: !Equals [!Ref EnableContentRebuild, 'true']
 
 Resources:
   AppTable:
@@ -125,7 +138,7 @@ Resources:
           MODEL_ID_PARAM: /aalumvej26/ai/model-id
           SEARCH_PROVIDER: serpapi
           SERPAPI_KEY_PARAM: /aalumvej26/search/serpapi-key
-          CONTENT_REBUILD_PROJECT: !Ref ContentRebuildProject
+          CONTENT_REBUILD_PROJECT: !If [WithContentRebuild, !Ref ContentRebuildProject, '']
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AppTable
@@ -134,7 +147,9 @@ Resources:
               Effect: Allow
               Action:
                 - codebuild:StartBuild
-              Resource: !GetAtt ContentRebuildProject.Arn
+              # Narrowed to the project name pattern rather than !GetAtt, so this
+              # statement is valid whether or not the project currently exists.
+              Resource: !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/aalumvej26-content-rebuild-*
             - Sid: BedrockInvoke
               Effect: Allow
               Action:
@@ -250,6 +265,7 @@ Resources:
 
   ContentRebuildRole:
     Type: AWS::IAM::Role
+    Condition: WithContentRebuild
     Properties:
       RoleName: !Sub aalumvej26-content-rebuild-${Stage}
       # Explicit role, so the boundary must be declared here too — the Globals
@@ -297,6 +313,7 @@ Resources:
 
   ContentRebuildProject:
     Type: AWS::CodeBuild::Project
+    Condition: WithContentRebuild
     Properties:
       Name: !Sub aalumvej26-content-rebuild-${Stage}
       Description: Rebuild the static frontend from live content (triggered by the content pipeline)
@@ -327,6 +344,7 @@ Resources:
 
   ContentRebuildFailureRule:
     Type: AWS::Events::Rule
+    Condition: WithContentRebuild
     Properties:
       Name: !Sub aalumvej26-content-rebuild-failed-${Stage}
       Description: Alert via SNS when a content-triggered site rebuild fails
@@ -391,9 +409,11 @@ Resources:
               Service: events.amazonaws.com
             Action: sns:Publish
             Resource: !Ref ContentSummaryTopic
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !GetAtt ContentRebuildFailureRule.Arn
+            Condition: !If
+              - WithContentRebuild
+              - ArnEquals:
+                  aws:SourceArn: !GetAtt ContentRebuildFailureRule.Arn
+              - !Ref AWS::NoValue
 
   OplevelsSchedule:
     Type: AWS::Events::Rule

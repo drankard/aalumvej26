@@ -25,6 +25,19 @@ name: Harden deploy role (least privilege)
 #
 # NOTE: the role's trust policy only admits repo:drankard/aalumvej26 on
 # refs/heads/main, so this workflow must be on main to authenticate at all.
+#
+# WARNING — every stage below that calls iam:PutRolePolicy on the deploy role
+# (apply-scoped, revert-boundary) CURRENTLY FAILS. The live role carries an
+# explicit Deny on modifying itself:
+#
+#   AccessDenied: iam:PutRolePolicy on role aalumvej26-github-deploy
+#   with an explicit deny in an identity-based policy
+#
+# That Deny is not in bootstrap.yaml and finalize has never run, so it arrived by
+# some route outside this repo. Until an account admin removes it or applies
+# bootstrap.yaml directly with admin credentials, no CI path can change this
+# role, and create-boundary cannot work either (it needs iam:CreatePolicy, which
+# the role does not have and cannot grant itself).
 
 on:
   workflow_dispatch:
