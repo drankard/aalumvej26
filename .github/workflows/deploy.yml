@@ -42,33 +42,17 @@ jobs:
 
       - uses: aws-actions/setup-sam@v2
 
-      # bootstrap.yaml is the source of truth for the deploy role, but nothing
-      # used to apply it — it was pushed by hand via harden-role.yml. The live
-      # role therefore drifted from the file and broke two deploys in eight days
-      # (codebuild:CreateProject on 21 Jul, s3:PutBucketOwnershipControls on
-      # 29 Jul), each time rolling back the stack and skipping the frontend
-      # publish. Resyncing here, before SAM runs, makes that drift impossible:
-      # a PR that needs a new permission carries it, and it is applied in the
-      # same run that needs it.
-      - name: Sync deploy-role policy from bootstrap.yaml
-        run: |
-          set -euo pipefail
-          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-          FLAGS=""
-          if [ "${{ vars.ENFORCE_BOUNDARY }}" != "true" ]; then
-            FLAGS="--without-boundary"
-          fi
-          python -m pip install --quiet pyyaml
-          python .github/scripts/extract_role_policy.py "$ACCOUNT" $FLAGS > /tmp/policy.json
-          aws iam put-role-policy \
-            --role-name aalumvej26-github-deploy \
-            --policy-name aalumvej26-scoped \
-            --policy-document file:///tmp/policy.json
-          echo "Deploy-role policy synced (boundary enforced: ${{ vars.ENFORCE_BOUNDARY || 'false' }})."
-          # IAM is eventually consistent; give the new grants a moment to land
-          # before CloudFormation starts asserting them.
-          sleep 10
-
+      # NOTE: there is deliberately no step here that syncs the deploy role from
+      # bootstrap.yaml. It was tried and it cannot work: the live role carries an
+      # explicit Deny on iam:PutRolePolicy against itself, so it cannot rewrite
+      # its own policy — the attempt fails with AccessDenied and takes the whole
+      # deploy with it. That Deny is not in bootstrap.yaml and was not applied by
+      # harden-role.yml (its finalize stage has never run), so the live role has
+      # drifted by some other route and only an account admin can realign it.
+      #
+      # Until then, every capability needing a permission the role lacks stays
+      # behind a default-off parameter: EnableContentRebuild, EnableAccessLogs,
+      # EnforceBoundary. See bootstrap.yaml for the admin-side fix.
       - name: SAM build
         run: sam build --config-env ci
 
@@ -82,7 +66,8 @@ jobs:
             --parameter-overrides \
               "CertificateArn=arn:aws:acm:us-east-1:622327379339:certificate/d4006225-e2c7-49cb-80a2-b8073e8b10d0" \
               "EnforceBoundary=${{ vars.ENFORCE_BOUNDARY || 'false' }}" \
-              "EnableAccessLogs=${{ vars.ENABLE_ACCESS_LOGS || 'false' }}"
+              "EnableAccessLogs=${{ vars.ENABLE_ACCESS_LOGS || 'false' }}" \
+              "EnableContentRebuild=${{ vars.ENABLE_CONTENT_REBUILD || 'false' }}"
 
       - uses: actions/setup-node@v4
         with:
