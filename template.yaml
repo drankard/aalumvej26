@@ -7,6 +7,11 @@ Globals:
     Timeout: 30
     Runtime: python3.12
     MemorySize: 256
+    # PermissionsBoundary is deliberately NOT set here. It is a valid Globals
+    # property, but whether an Fn::If resolving to AWS::NoValue survives the
+    # Globals merge can only be verified by a real deploy — sam build does not
+    # run the Serverless transform locally. It is set per-function below instead,
+    # which is plain resource-level behaviour.
 
 Parameters:
   Stage:
@@ -23,9 +28,33 @@ Parameters:
     Type: String
     Default: david@graveyard.dk
     Description: Email for content pipeline notifications and alarms
+  EnableAccessLogs:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      CloudFront access logs (the only way to see AI crawler traffic). Driven by
+      the ENABLE_ACCESS_LOGS repository variable via deploy.yml. It needs
+      s3:PutBucketOwnershipControls and s3:PutLifecycleConfiguration, which the
+      role gains automatically on the first deploy after the bootstrap.yaml sync
+      step landed — so leave this off for that run, confirm the deploy is green,
+      then set the variable to 'true'. Enabling it in the same run that first
+      grants the permissions risks racing IAM's eventual consistency.
+  EnforceBoundary:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      Attach the aalumvej26-boundary permissions boundary to every role in this
+      stack. Driven by the ENFORCE_BOUNDARY repository variable via deploy.yml,
+      so it is switched on from the GitHub UI. Requires the boundary policy to
+      exist first: run the harden-role workflow with stage=create-boundary.
+      Enabling it before the policy exists fails role creation and rolls back.
 
 Conditions:
   HasCertificate: !Not [!Equals [!Ref CertificateArn, '']]
+  WithAccessLogs: !Equals [!Ref EnableAccessLogs, 'true']
+  WithBoundary: !Equals [!Ref EnforceBoundary, 'true']
 
 Resources:
   AppTable:
@@ -47,6 +76,7 @@ Resources:
   AppFunction:
     Type: AWS::Serverless::Function
     Properties:
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       FunctionName: !Sub aalumvej26-${Stage}
       CodeUri: backend/
       Handler: handler.lambda_handler
@@ -82,6 +112,7 @@ Resources:
   ContentPipelineFunction:
     Type: AWS::Serverless::Function
     Properties:
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       FunctionName: !Sub aalumvej26-content-pipeline-${Stage}
       CodeUri: backend/lambdas/content_pipeline/
       Handler: app.lambda_handler
@@ -128,6 +159,7 @@ Resources:
   PipelineCanaryFunction:
     Type: AWS::Serverless::Function
     Properties:
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       FunctionName: !Sub aalumvej26-pipeline-canary-${Stage}
       CodeUri: backend/lambdas/pipeline_canary/
       Handler: canary.lambda_handler
@@ -220,6 +252,9 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub aalumvej26-content-rebuild-${Stage}
+      # Explicit role, so the boundary must be declared here too — the Globals
+      # entry only covers SAM-generated function roles.
+      PermissionsBoundary: !If [WithBoundary, !Sub 'arn:aws:iam::${AWS::AccountId}:policy/aalumvej26-boundary', !Ref 'AWS::NoValue']
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -461,12 +496,14 @@ Resources:
         # indexing.
         # Access logs are the only ground truth for AI crawler traffic: no answer
         # engine reports citations, and GPTBot/ClaudeBot/PerplexityBot fetches are
-        # invisible to Search Console. Without these, half the SEO work here has
-        # no measurable outcome.
-        Logging:
-          Bucket: !GetAtt LogsBucket.DomainName
-          Prefix: cloudfront/
-          IncludeCookies: false
+        # invisible to Search Console. Gated on EnableAccessLogs — see that
+        # parameter for the deploy-role permissions this needs first.
+        Logging: !If
+          - WithAccessLogs
+          - Bucket: !GetAtt LogsBucket.DomainName
+            Prefix: cloudfront/
+            IncludeCookies: false
+          - !Ref AWS::NoValue
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
@@ -475,8 +512,11 @@ Resources:
 
   # CloudFront standard logging delivers via ACL, so this bucket keeps ACLs
   # enabled (BucketOwnerPreferred) while staying fully private to the public.
+  # Setting OwnershipControls is precisely what the deploy role currently lacks
+  # permission to do, hence the condition.
   LogsBucket:
     Type: AWS::S3::Bucket
+    Condition: WithAccessLogs
     Properties:
       BucketName: !Sub aalumvej26-logs-${Stage}
       OwnershipControls:
@@ -526,6 +566,7 @@ Outputs:
   FrontendBucket:
     Value: !Ref FrontendBucket
   LogsBucket:
+    Condition: WithAccessLogs
     Description: CloudFront access logs — source for AI crawler traffic analysis
     Value: !Ref LogsBucket
   TableName:
