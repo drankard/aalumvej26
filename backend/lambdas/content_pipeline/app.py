@@ -93,6 +93,12 @@ def lambda_handler(event: dict, context) -> dict:
             if budget_ok("write+publish"):
                 st.stage_write_publish(state, table, bedrock)
             st.stage_source_lifecycle(state, table)
+            # Last, on whatever budget is left: upgrade a few already-published
+            # posts with depth copy. Nothing in this account can invoke this
+            # Lambda on demand, so the backfill has to ride the schedule.
+            if budget_ok("depth backfill"):
+                st.stage_backfill_depth(state, table, bedrock,
+                                        time_left=lambda: secs_for(0.5))
 
     except Exception as e:
         logger.error(f"Pipeline failed: {type(e).__name__}: {e}", exc_info=True)

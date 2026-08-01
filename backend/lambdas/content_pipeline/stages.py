@@ -21,7 +21,7 @@ from crawler import crawl, validate_url
 from llm import call_structured
 from schemas import (
     AreaAuditResult, CandidateEvent, CrawlResult, ExtractResult, JudgeResult,
-    Judgment, Source, SourceJudgeResult, SourceVerdict, WriteResult,
+    DepthResult, Judgment, Source, SourceJudgeResult, SourceVerdict, WriteResult,
 )
 from seeds import SEED_SOURCES
 
@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
 PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
 
 MAX_PUBLISH_PER_RUN = 8
+# Posts upgraded with depth copy per run. Each needs a crawl plus a share of an
+# LLM call, so this is deliberately small — the backbfill is self-healing across
+# runs rather than a single long job that risks the Lambda deadline.
+DEPTH_PER_RUN = 5
 MAX_CANDIDATES = 40
 TOO_FAR_FUTURE_DAYS = 60
 DUPLICATE_RATIO = 0.82
@@ -58,6 +62,7 @@ class RunState:
     published: list[dict] = field(default_factory=list)
     archived: list[dict] = field(default_factory=list)
     updated_areas: list[dict] = field(default_factory=list)
+    depth_filled: list[str] = field(default_factory=list)
     new_sources: list[Source] = field(default_factory=list)
     suggested_sources: list[SourceVerdict] = field(default_factory=list)
     retired_sources: list[str] = field(default_factory=list)
@@ -434,6 +439,104 @@ def stage_write_publish(state: RunState, table, bedrock, url_checker=None) -> No
             state.published.append({"id": post_id, "title": copy.translations.da.title,
                                     "category": copy.category, "date": copy.translations.da.date,
                                     "domain": domain})
+
+
+
+def posts_missing_depth(posts: list[dict]) -> list[dict]:
+    """Published posts whose Danish translation has no tldr yet.
+
+    tldr is the marker because it is the one depth field every post gets,
+    evergreen or event — body is legitimately empty on dated items, so keying
+    off body would reprocess every event forever.
+    """
+    out = []
+    for p in posts:
+        if p.get("status") != "published":
+            continue
+        da = (p.get("translations") or {}).get("da") or {}
+        if not (da.get("tldr") or "").strip():
+            out.append(p)
+    return out
+
+
+def stage_backfill_depth(state: RunState, table, bedrock, time_left=lambda: 120.0) -> None:
+    """Add depth copy to posts published before the depth fields existed.
+
+    The write stage only ever creates new posts, so without this the existing
+    catalogue keeps empty tldr/body/facts/faq forever and the whole depth
+    investment stays dormant on exactly the pages that are already indexed.
+
+    Runs a few posts per scheduled run and stops when the time budget is gone,
+    so it converges on its own with no manual invocation — which matters because
+    nothing in this account can invoke this Lambda on demand.
+    """
+    pending = posts_missing_depth(state.posts)
+    if not pending:
+        return
+    batch = pending[:DEPTH_PER_RUN]
+
+    # Fetch each post's own source so facts have something to be sourced from.
+    targets = [(urlparse(p.get("url", "")).netloc.removeprefix("www."), p["url"])
+               for p in batch if p.get("url")]
+    text_by_url: dict[str, str] = {}
+    if targets:
+        for r in crawl(targets, time_left=time_left):
+            if r.ok and r.text:
+                text_by_url[r.url] = r.text[:6000]
+
+    blocks = []
+    for p in batch:
+        da = (p.get("translations") or {}).get("da") or {}
+        blocks.append(
+            f"- title={da.get('title', '')!r} date={da.get('date', '')!r} "
+            f"excerpt={da.get('excerpt', '')!r} url={p.get('url', '')} "
+            f"tag={p.get('tag_key', '')} event_start={p.get('event_start')}\n"
+            f"  source_text={text_by_url.get(p.get('url', ''), '')!r}"
+        )
+
+    prompt = load_prompt("depth.md", current_date=state.today.isoformat(),
+                         season=state.season, posts="\n".join(blocks))
+    try:
+        result = call_structured(bedrock, state.model_id, prompt, DepthResult,
+                                 tool_name="record_depth", max_tokens=32768)
+    except Exception as e:
+        # Enriching already-published pages is an enhancement. Failing it must
+        # not take down a run that has just published new content and is about
+        # to report — the posts stay as they are and the next run retries them.
+        logger.error(f"Depth backfill failed: {type(e).__name__}: {e}", exc_info=True)
+        state.notes.append(f"Depth backfill: skipped — {type(e).__name__}: {e}")
+        return
+
+    by_title = {_norm_title(((p.get("translations") or {}).get("da") or {}).get("title", "")): p
+                for p in batch}
+    now = _now_iso()
+    for item in result.posts:
+        post = by_title.get(_norm_title(item.title_ref))
+        if post is None:
+            state.notes.append(f"Depth backfill: no post matched {item.title_ref!r} — skipped.")
+            continue
+
+        # Merge depth into the stored translations. Title, excerpt and date are
+        # left exactly as published, and merge_translations carries hand-written
+        # fields forward, so a backfill can never overwrite from_house.
+        incoming = {}
+        for lang in ("da", "en", "de"):
+            existing = dict(((post.get("translations") or {}).get(lang) or {}))
+            existing.update(getattr(item.translations, lang).model_dump())
+            incoming[lang] = existing
+        merged = merge_translations(post.get("translations") or {}, incoming)
+
+        table.update_item(
+            Key={"pk": "POST", "sk": post["sk"]},
+            UpdateExpression="SET translations = :t, updated_at = :u",
+            ExpressionAttributeValues={":t": merged, ":u": now},
+        )
+        state.depth_filled.append(((post.get("translations") or {}).get("da") or {}).get("title", "?"))
+
+    remaining = len(pending) - len(batch)
+    if remaining > 0:
+        state.notes.append(f"Depth backfill: {len(state.depth_filled)} filled, "
+                           f"{remaining} still pending (continues next run).")
 
 
 def stage_source_lifecycle(state: RunState, table) -> None:
