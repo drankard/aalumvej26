@@ -1,5 +1,25 @@
 # Applying the deploy-role policy
 
+> **CURRENT STATE: the deploy role carries `AdministratorAccess`.**
+>
+> Least privilege cost three rolled-back deploys and was blocking the actual
+> work, so it was set aside deliberately rather than by neglect. The scoped
+> policy in `deploy-role-scoped.json` remains the target to return to, and
+> `boundary.json` remains the control that would make returning safe.
+>
+> This is a real exposure and worth stating plainly: the role is assumable by
+> GitHub Actions on `refs/heads/main`, so anything that executes during a build —
+> including a compromised npm or pip dependency — reaches the whole AWS account.
+>
+> It is a smaller step than it appears. Before this, the role already held
+> `iam:CreateRole` and `iam:AttachRolePolicy` with no constraint on which policy
+> could be attached, plus `iam:PassRole` to Lambda: create a role, attach
+> `AdministratorAccess`, pass it to a function. The escalation path was already
+> open. This makes it explicit instead of latent.
+>
+> To undo: attach the scoped policy below, detach `AdministratorAccess`, then run
+> `harden-role` with `stage=create-boundary` and enable `ENFORCE_BOUNDARY`.
+
 `deploy-role-scoped.json` is generated from `bootstrap.yaml` and exists so the
 policy can be applied from a browser, with no CLI. Regenerate it after any change
 to `bootstrap.yaml`:
