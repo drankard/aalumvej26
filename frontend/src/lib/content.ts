@@ -13,6 +13,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { buildSlugMap } from "./slug";
 import { warnOrphanedFromHouseKeys } from "./fromHouse";
+import { warnBrokenImages } from "./images";
 import type { Area, Category, Post, SiteContent } from "./types";
 
 const API_URL = (
@@ -83,7 +84,9 @@ async function load(): Promise<SiteContent> {
   const areaSlugs = buildSlugMap(areas);
 
   // Loud once per build if a hand-written note has been orphaned by a slug change.
-  warnOrphanedFromHouseKeys([...postSlugs.values(), ...areaSlugs.values()]);
+  const allSlugs = [...postSlugs.values(), ...areaSlugs.values()];
+  warnOrphanedFromHouseKeys(allSlugs);
+  warnBrokenImages(allSlugs);
 
   return { posts, areas, categories, archivedPosts, postSlugs, areaSlugs };
 }

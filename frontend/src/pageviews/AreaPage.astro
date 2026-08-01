@@ -9,6 +9,7 @@ import FromHouse from "../components/FromHouse.astro";
 import MoreDetail from "../components/MoreDetail.astro";
 import { hostname } from "../lib/facts";
 import { fromHouse } from "../lib/fromHouse";
+import { absoluteImage, pageImage } from "../lib/images";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
@@ -35,6 +36,7 @@ const canonical = `${SITE}${p}${basePath}`;
 const title = `${tr.name} — ${L.nav.area} · Agger, Thy`;
 const description = (tr.desc || tr.name || "").slice(0, 300);
 
+const img = pageImage(slug);
 const bodyHtml = renderMarkdown(tr.body);
 const facts = tr.facts ?? [];
 const faq = tr.faq ?? [];
@@ -46,6 +48,7 @@ const jsonLd: object[] = [
     name: tr.name,
     description: tr.desc || "",
     url: canonical,
+    ...(img ? { image: absoluteImage(img.src) } : {}),
     containedInPlace: {
       "@type": "Place",
       name: "Nationalpark Thy",
@@ -92,6 +95,7 @@ if (faq.length > 0) {
   description={description}
   basePath={basePath}
   ogType="article"
+  ogImage={img ? absoluteImage(img.src) : undefined}
   jsonLd={jsonLd}
 >
   <main class="page">
@@ -104,6 +108,9 @@ if (faq.length > 0) {
         {tr.dist && <span class="dist">{U.distance}: {tr.dist}</span>}
       </div>
       <h1>{tr.name}</h1>
+      {img && (
+        <img class="hero" src={img.src} alt={img.alt} width="820" height="460" loading="eager" />
+      )}
       <p class="lead">{tr.desc}</p>
       <FactsTable lang={lang} facts={facts} />
       <MoreDetail lang={lang} html={bodyHtml} />
@@ -164,6 +171,14 @@ if (faq.length > 0) {
     font-weight: 400;
     line-height: 1.15;
     margin-bottom: 14px;
+  }
+  .hero {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 20px;
   }
   .lead {
     font-size: 19px;

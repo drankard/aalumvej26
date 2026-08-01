@@ -9,6 +9,7 @@ import FromHouse from "../components/FromHouse.astro";
 import MoreDetail from "../components/MoreDetail.astro";
 import { creditedDomains, hostname } from "../lib/facts";
 import { fromHouse } from "../lib/fromHouse";
+import { absoluteImage, pageImage } from "../lib/images";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
@@ -51,6 +52,8 @@ const faq = tr.faq ?? [];
 
 // Only credit domains the facts table hasn't already named, so a page sourced
 // from a single site doesn't print that site twice.
+const img = pageImage(slug);
+
 const credited = creditedDomains(facts);
 const extraSources = sources.filter((u) => !credited.has(hostname(u)));
 
@@ -76,6 +79,7 @@ const primaryEntity =
         description: tr.tldr || tr.excerpt || "",
         url: canonical,
         startDate: post.event_start,
+        ...(img ? { image: absoluteImage(img.src) } : {}),
         ...(post.event_end ? { endDate: post.event_end } : {}),
         eventStatus: "https://schema.org/EventScheduled",
         eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -89,6 +93,8 @@ const primaryEntity =
         url: canonical,
         touristType: catLabel,
         containedInPlace: regionPlace,
+        // Asserted only when we hold a photo that actually shows this place.
+        ...(img ? { image: absoluteImage(img.src) } : {}),
       };
 
 const jsonLd: object[] = [
@@ -133,6 +139,7 @@ if (faq.length > 0) {
   description={description}
   basePath={basePath}
   ogType="article"
+  ogImage={img ? absoluteImage(img.src) : undefined}
   jsonLd={jsonLd}
 >
   <main class="page">
@@ -153,6 +160,9 @@ if (faq.length > 0) {
       <h1>{post.emoji} {tr.title}</h1>
       {/* The excerpt stays on cards and in the meta description. Repeating it
           here under the tldr gave the reader two paragraphs of the same thing. */}
+      {img && (
+        <img class="hero" src={img.src} alt={img.alt} width="820" height="460" loading="eager" />
+      )}
       <p class="lead">{tr.tldr || tr.excerpt}</p>
       <FactsTable lang={lang} facts={facts} />
       <MoreDetail lang={lang} html={bodyHtml} />
@@ -226,6 +236,14 @@ if (faq.length > 0) {
     font-weight: 400;
     line-height: 1.15;
     margin-bottom: 14px;
+  }
+  .hero {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 20px;
   }
   .lead {
     font-size: 19px;
