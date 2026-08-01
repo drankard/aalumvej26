@@ -39,6 +39,10 @@ npm run deploy:all       # Deploy backend then frontend
 - Tests are deterministic, no real AWS calls
 - Run: `npm test` or `cd backend && python -m pytest tests/ -v`
 
+## Measurement
+
+- **CloudFront access logs are enabled**, delivered to `aalumvej26-logs-prod` under `cloudfront/`, expiring after 90 days. They are the only ground truth for AI-crawler traffic: no answer engine reports citations, and Search Console cannot see GPTBot, ClaudeBot, PerplexityBot or OAI-SearchBot at all. Parse the user-agent field to see which pages they actually fetch and how often.
+
 ## Frontend Design
 
 - **Astro static site**: content is fetched once per build (`src/lib/content.ts`, RPC `list_content` + `list_archived_posts`) and rendered to static HTML. No client-side data fetching; small vanilla-JS islands handle the carousel/nav/sticky-bar interactivity.

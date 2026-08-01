@@ -66,7 +66,7 @@ jobs:
             --parameter-overrides \
               "CertificateArn=arn:aws:acm:us-east-1:622327379339:certificate/d4006225-e2c7-49cb-80a2-b8073e8b10d0" \
               "EnforceBoundary=${{ vars.ENFORCE_BOUNDARY || 'false' }}" \
-              "EnableAccessLogs=${{ vars.ENABLE_ACCESS_LOGS || 'false' }}" \
+              "EnableAccessLogs=${{ vars.ENABLE_ACCESS_LOGS || 'true' }}" \
               "EnableContentRebuild=${{ vars.ENABLE_CONTENT_REBUILD || 'true' }}"
 
       - uses: actions/setup-node@v4
