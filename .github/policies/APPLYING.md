@@ -43,13 +43,21 @@ separate, later sequence documented in `README.md`.
 
 ## After applying
 
-Set these repository variables one at a time, confirming a green deploy between
-each (Settings → Secrets and variables → Actions → Variables):
+Nothing further is needed from an admin. Tell Claude the policy is applied and
+the rest is driven from this repo:
 
-| Variable | Value | Unlocks |
-| --- | --- | --- |
-| `ENABLE_CONTENT_REBUILD` | `true` | content-pipeline runs republish the site themselves |
-| `ENABLE_ACCESS_LOGS` | `true` | CloudFront logs — the only view of AI-crawler traffic |
+| Step | How |
+| --- | --- |
+| Enable the content rebuild | change the `ENABLE_CONTENT_REBUILD` fallback in `deploy.yml` from `'false'` to `'true'`, merge, watch the deploy |
+| Enable access logs | same, `ENABLE_ACCESS_LOGS` |
+| Create the permissions boundary | run the `harden-role` workflow with `stage=create-boundary` |
+| Enforce the boundary | same fallback change for `ENFORCE_BOUNDARY` |
 
-Then re-run the Deploy workflow. Do not set both in one run: each needs a
-permission that has to land before the stack asserts it.
+Each is a separate merge and a separate deploy, verified green before the next.
+They are deliberately not batched: each needs a permission to have landed before
+the stack asserts it, and IAM is eventually consistent — losing that race is
+exactly how the 29 Jul rollback happened.
+
+The `vars.*` indirection stays so the switches can still be forced off from the
+GitHub UI without a commit, but the default now lives in code, where it can be
+changed by whoever is doing the work rather than only by a repo admin.
