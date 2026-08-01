@@ -8,6 +8,7 @@ import Faq from "../components/Faq.astro";
 import FromHouse from "../components/FromHouse.astro";
 import MoreDetail from "../components/MoreDetail.astro";
 import { creditedDomains, hostname } from "../lib/facts";
+import { fromHouse } from "../lib/fromHouse";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
@@ -155,7 +156,7 @@ if (faq.length > 0) {
       <p class="lead">{tr.tldr || tr.excerpt}</p>
       <FactsTable lang={lang} facts={facts} />
       <MoreDetail lang={lang} html={bodyHtml} />
-      <FromHouse lang={lang} text={tr.from_house} />
+      <FromHouse lang={lang} text={fromHouse(slug, lang, tr.from_house)} />
       <Faq lang={lang} items={faq} />
       <HouseCrossSell lang={lang} />
       {extraSources.length > 0 && (

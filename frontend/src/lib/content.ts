@@ -12,6 +12,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { buildSlugMap } from "./slug";
+import { warnOrphanedFromHouseKeys } from "./fromHouse";
 import type { Area, Category, Post, SiteContent } from "./types";
 
 const API_URL = (
@@ -78,14 +79,13 @@ async function load(): Promise<SiteContent> {
   const categories = (raw.categories ?? []).sort((a, b) => a.sort_order - b.sort_order);
   const archivedPosts = (raw.archivedPosts ?? []).filter((p) => p.status === "archived");
 
-  return {
-    posts,
-    areas,
-    categories,
-    archivedPosts,
-    postSlugs: buildSlugMap(posts),
-    areaSlugs: buildSlugMap(areas),
-  };
+  const postSlugs = buildSlugMap(posts);
+  const areaSlugs = buildSlugMap(areas);
+
+  // Loud once per build if a hand-written note has been orphaned by a slug change.
+  warnOrphanedFromHouseKeys([...postSlugs.values(), ...areaSlugs.values()]);
+
+  return { posts, areas, categories, archivedPosts, postSlugs, areaSlugs };
 }
 
 let cache: Promise<SiteContent> | undefined;

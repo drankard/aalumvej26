@@ -18,6 +18,7 @@ CASES = {
     "judge.md": dict(current_date="2026-07-20", season="summer", closed_list="none",
                      existing_posts="- x", candidates="- y"),
     "write.md": dict(current_date="2026-07-20", season="summer", accepted="- z"),
+    "depth.md": dict(current_date="2026-07-20", season="summer", posts="- p"),
     "source_judge.md": dict(current_date="2026-07-20", registry="- a.dk", candidates="### b.dk"),
     "area_audit.md": dict(current_date="2026-07-20", season="summer",
                           cards="### card", recent_posts="- p"),

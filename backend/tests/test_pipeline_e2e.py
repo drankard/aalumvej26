@@ -142,6 +142,25 @@ SCRIPTS = {
     ]},
     "record_posts": {"posts": [GOOD_COPY]},
     "record_audits": {"audits": [], "new_card_recommendations": []},
+    # The depth backfill upgrades already-published posts. "Krabbefest i Agger"
+    # is the surviving existing post in this fixture; the unsourced price row is
+    # here on purpose — it must be dropped before it reaches DynamoDB.
+    "record_depth": {"posts": [{
+        "title_ref": "Krabbefest i Agger",
+        "translations": {
+            lang: {
+                "tldr": f"[{lang}] Krabbefest paa havnen i Agger.",
+                "body": f"## Hvad der sker\n\n[{lang}] Krabber, boder og musik.",
+                "facts": [
+                    {"label": "Sted", "value": "Agger Havn",
+                     "source_url": "https://old.dk/keep", "computed": False},
+                    {"label": "Afstand fra Aalumvej 26", "value": "1 km", "computed": True},
+                    {"label": "Pris", "value": "gaettet 50 kr."},
+                ],
+                "faq": [{"question": "Er det gratis?", "answer": "Se arrangoerens side."}],
+            } for lang in ("da", "en", "de")
+        },
+    }]},
 }
 
 
@@ -217,7 +236,8 @@ def test_oplevelser_end_to_end(env, monkeypatch):
     assert "visitthy.com" in body  # failed domain reported
 
     # model called exactly three times: extract, judge, write
-    assert bedrock.calls == ["record_candidates", "record_judgments", "record_posts"]
+    assert bedrock.calls == ["record_candidates", "record_judgments", "record_posts",
+                             "record_depth"]
 
     # source health recorded for crawled domains
     darling = table.items[("SOURCE", "aggerdarling.dk")]

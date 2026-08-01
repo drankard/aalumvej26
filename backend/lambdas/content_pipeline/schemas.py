@@ -137,23 +137,19 @@ def drop_unsourced_facts(rows: object) -> tuple[list, int]:
     return kept[:MAX_FACTS], len(rows) - len(kept[:MAX_FACTS])
 
 
-class TranslationEntry(BaseModel):
-    title: str
-    excerpt: str
-    date: str
-    # Depth fields. Optional so a model that returns only the classic three
-    # still validates; the frontend renders each block only when populated.
+class DepthFields(BaseModel):
+    """The depth block, with the provenance gate applied.
+
+    Shared by the write stage (new posts) and the depth backfill (existing
+    posts) so both go through exactly one implementation of the fact rules —
+    a second copy would drift, and the copy that drifted would be the one
+    publishing invented opening hours.
+    """
+
     tldr: str = ""
     body: str = ""
     facts: list[Fact] = []
     faq: list[FaqItem] = []
-
-    @field_validator("title", "excerpt", "date")
-    @classmethod
-    def _nonempty(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("must not be empty")
-        return v
 
     @field_validator("facts", mode="before")
     @classmethod
@@ -165,6 +161,36 @@ class TranslationEntry(BaseModel):
     @classmethod
     def _cap_faq(cls, v: object) -> object:
         return v[:MAX_FAQ] if isinstance(v, list) else v
+
+
+class TranslationEntry(DepthFields):
+    title: str
+    excerpt: str
+    date: str
+
+    @field_validator("title", "excerpt", "date")
+    @classmethod
+    def _nonempty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v
+
+
+class DepthTranslations(BaseModel):
+    da: DepthFields
+    en: DepthFields
+    de: DepthFields
+
+
+class PostDepth(BaseModel):
+    """Depth generated for one already-published post."""
+
+    title_ref: str
+    translations: DepthTranslations
+
+
+class DepthResult(BaseModel):
+    posts: list[PostDepth]
 
 
 class PostTranslations(BaseModel):
