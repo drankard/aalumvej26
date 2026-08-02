@@ -6,12 +6,16 @@ filter → judge → write → publish → report) and the omraadet audit flow.
 """
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lambdas" / "content_pipeline"))
+
+from stages import TOO_FAR_FUTURE_DAYS  # noqa: E402
 
 from schemas import CrawlResult  # noqa: E402
 
@@ -114,10 +118,22 @@ def _area(aid, name, url):
                              "de": {"name": name, "dist": "~20 Min", "desc": "Schön."}}}
 
 
+# Dates are relative to today because the pipeline filters candidates against the
+# real clock (datetime.now in the handler). Hardcoded dates made this test a time
+# bomb: it passed until 2026-08-01 and failed every run after, and because the
+# deploy job depends on the test job, that blocked every deploy rather than just
+# going red.
+_TODAY = date.today()
+SOON = (_TODAY + timedelta(days=7)).isoformat()          # inside the window -> published
+FAR = (_TODAY + timedelta(days=TOO_FAR_FUTURE_DAYS + 30)).isoformat()  # -> too_far_future
+DUP = (_TODAY + timedelta(days=14)).isoformat()          # in window, rejected as duplicate
+PAST_START = (_TODAY - timedelta(days=90)).isoformat()   # -> archived
+PAST_END = (_TODAY - timedelta(days=89)).isoformat()
+
 GOOD_COPY = {
     "title_ref": "Sommerkoncert i Agger", "category": "kultur", "tag_key": "event",
     "url": "https://ny.dk/koncert", "emoji": "🎵",
-    "event_start": "2026-08-01", "event_end": "2026-08-01",
+    "event_start": SOON, "event_end": SOON,
     "translations": {
         "da": {"title": "Sommerkoncert i Agger", "excerpt": "Koncert ved De Sorte Huse kl. 20. Gratis.", "date": "1. august 2026"},
         "en": {"title": "Summer concert in Agger", "excerpt": "Concert at De Sorte Huse, 8 PM. Free.", "date": "1 August 2026"},
@@ -127,13 +143,13 @@ GOOD_COPY = {
 
 SCRIPTS = {
     "record_candidates": {"candidates": [
-        {"title": "Sommerkoncert i Agger", "event_start": "2026-08-01", "event_end": "2026-08-01",
+        {"title": "Sommerkoncert i Agger", "event_start": SOON, "event_end": SOON,
          "location": "Agger", "source_url": "https://ny.dk/koncert", "source_domain": "ny.dk",
          "category": "kultur", "details": "Kl. 20, gratis, De Sorte Huse."},
-        {"title": "Gammel Fest", "event_start": "2027-01-01", "event_end": "2027-01-02",
+        {"title": "Gammel Fest", "event_start": FAR, "event_end": FAR,
          "location": "Thisted", "source_url": "https://x.dk/y", "category": "kultur",
          "details": "Langt ude i fremtiden."},
-        {"title": "Krabbefest i Agger", "event_start": "2026-08-08", "event_end": "2026-08-08",
+        {"title": "Krabbefest i Agger", "event_start": DUP, "event_end": DUP,
          "location": "Agger", "source_url": "https://old.dk/keep", "category": "born",
          "details": "Duplicate af eksisterende."},
     ]},
@@ -187,7 +203,7 @@ def _wire(monkeypatch, table, bedrock, crawl_results):
 
 def test_oplevelser_end_to_end(env, monkeypatch):
     table = FakeTable()
-    table.seed(_existing_post("expired1", "Forårsfest", event_start="2026-05-01", event_end="2026-05-02"))
+    table.seed(_existing_post("expired1", "Forårsfest", event_start=PAST_START, event_end=PAST_END))
     table.seed(_existing_post("keep1", "Krabbefest i Agger 2026", event_start=None, event_end=None,
                               url="https://old.dk/keep"))
 
@@ -213,7 +229,7 @@ def test_oplevelser_end_to_end(env, monkeypatch):
     assert table.items[("POST", "POST#expired1")]["status"] == "archived"
     new = [p for p in table.posts("published") if p.get("run_id")]
     assert len(new) == 1
-    assert new[0]["event_start"] == "2026-08-01"
+    assert new[0]["event_start"] == SOON
     assert new[0]["translations"]["de"]["title"] == "Sommerkonzert in Agger"
     assert new[0]["sort_order"] == 1
 
