@@ -6,6 +6,7 @@
 // no dedicated URL to rank. This page is the primary source for everything
 // about the property, so it carries the full VacationRental markup while the
 // home page keeps a summary LodgingBusiness reference pointing here.
+import { Picture } from "astro:assets";
 import Base from "../layouts/Base.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import FactsTable from "../components/FactsTable.astro";
@@ -42,7 +43,7 @@ const jsonLd: object[] = [
     // The shared definition, plus the fields only this page carries. The home
     // page emits the same node; anything they both state lives in houseNode so
     // the two cannot drift apart.
-    ...houseNode(lang),
+    ...(await houseNode(lang)),
     floorSize: { "@type": "QuantitativeValue", value: HOUSE_SIZE_M2, unitCode: "MTK" },
     amenityFeature: L.features.map((f: string) => ({
       "@type": "LocationFeatureSpecification",
@@ -79,7 +80,7 @@ const jsonLd: object[] = [
   description={description}
   basePath={basePath}
   ogType="article"
-  ogImage={`${SITE}${HOUSE_IMAGES[0].src}`}
+  ogImage={HOUSE_IMAGES[0].img}
   jsonLd={jsonLd}
 >
   <main class="page">
@@ -91,7 +92,15 @@ const jsonLd: object[] = [
 
       <div class="gallery">
         {HOUSE_IMAGES.map((img, i) => (
-          <img src={img.src} alt={img.alt} loading={i === 0 ? "eager" : "lazy"} width="800" height="600" />
+          <Picture
+            src={img.img}
+            alt={img.alt}
+            formats={["webp"]}
+            width={480}
+            widths={[240, 480]}
+            sizes="(max-width: 640px) 100vw, 240px"
+            loading={i === 0 ? "eager" : "lazy"}
+          />
         ))}
       </div>
 
@@ -143,7 +152,7 @@ const jsonLd: object[] = [
     gap: 10px;
     margin-bottom: 32px;
   }
-  .gallery img {
+  .gallery :global(picture img) {
     width: 100%;
     height: 200px;
     object-fit: cover;

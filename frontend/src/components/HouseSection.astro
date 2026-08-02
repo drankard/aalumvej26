@@ -1,4 +1,5 @@
 ---
+import { Picture } from "astro:assets";
 import { loc, type Lang } from "../lib/i18n";
 import { BOOKING, HOUSE_IMAGES } from "../lib/site";
 
@@ -14,9 +15,13 @@ const L = loc(lang);
   <div class="container grid">
     <div class="carousel" id="house-carousel">
       {HOUSE_IMAGES.map((img, i) => (
-        <img
-          src={img.src}
+        <Picture
+          src={img.img}
           alt={img.alt}
+          formats={["webp"]}
+          width={1200}
+          widths={[400, 800, 1200]}
+          sizes="(max-width: 860px) 100vw, 45vw"
           loading={i === 0 ? "eager" : "lazy"}
           class:list={[{ active: i === 0 }]}
           data-idx={i}
@@ -80,16 +85,20 @@ const L = loc(lang);
     background: var(--sand);
     cursor: pointer;
   }
-  .carousel img {
+  /* <Picture> wraps each slide in a <picture>, so that element carries the
+     stacking and the <img> inside it just fills the box. */
+  .carousel :global(picture) {
     position: absolute;
     inset: 0;
+  }
+  .carousel :global(picture img) {
     width: 100%;
     height: 100%;
     object-fit: cover;
     opacity: 0;
     transition: opacity 1s;
   }
-  .carousel img.active {
+  .carousel :global(picture img.active) {
     opacity: 1;
   }
   .dots {

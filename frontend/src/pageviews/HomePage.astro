@@ -34,7 +34,7 @@ const descriptions: Record<Lang, string> = {
 // (it claimed 3 bedrooms and no pets; the house has 2 and allows one dog).
 // Both now derive from lib/house.ts so markup and visible text can't drift.
 const jsonLd = [
-  houseNode(lang),
+  await houseNode(lang),
   {
     "@context": "https://schema.org",
     "@type": "WebSite",

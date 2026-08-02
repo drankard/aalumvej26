@@ -7,6 +7,7 @@
 // data on /huset/ and the home page are both generated from these values, and a
 // mismatch between markup and visible copy is worse than omitting the claim.
 
+import { getImage } from "astro:assets";
 import { langPrefix, type Lang } from "./i18n";
 import { HOUSE_IMAGES, HOUSE_NAME, SITE } from "./site";
 import type { Fact, FaqItem } from "./types";
@@ -172,14 +173,20 @@ export const houseId = (lang: Lang): string => `${SITE}${langPrefix(lang)}/huset
  * `description` is HOUSE_INTRO, not either page's meta description: a meta
  * description describes the page, and this node describes the house.
  */
-export const houseNode = (lang: Lang) => ({
+export const houseNode = async (lang: Lang) => ({
   "@context": "https://schema.org",
   "@type": "VacationRental",
   "@id": houseId(lang),
   name: HOUSE_NAME,
   description: HOUSE_INTRO[lang],
   url: `${SITE}${langPrefix(lang)}/huset/`,
-  image: HOUSE_IMAGES.map((i) => `${SITE}${i.src}`),
+  // Derived rather than pointing at the masters: referencing an imported
+  // image's own `.src` makes the build emit that untouched master, which put
+  // every 2400px original on the CDN purely to be named in JSON-LD. 1200px is
+  // the width Google asks for in structured data.
+  image: await Promise.all(
+    HOUSE_IMAGES.map(async (i) => `${SITE}${(await getImage({ src: i.img, width: 1200 })).src}`)
+  ),
   address: HOUSE_ADDRESS,
   geo: { "@type": "GeoCoordinates", ...HOUSE_GEO },
   numberOfRooms: HOUSE_BEDROOMS,

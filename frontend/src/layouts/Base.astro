@@ -1,7 +1,8 @@
 ---
 import "../styles/global.css";
+import { getImage } from "astro:assets";
 import { HTML_LANG, LANGS, OG_LOCALE, langPrefix, type Lang } from "../lib/i18n";
-import { META_PIXEL_ID, OG_IMAGE, SITE } from "../lib/site";
+import { META_PIXEL_ID, OG_SOURCE, SITE } from "../lib/site";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 import StickyCta from "../components/StickyCta.astro";
@@ -13,7 +14,7 @@ interface Props {
   /** Path without locale prefix, always with leading + trailing slash, e.g. "/oplevelser/foo/". */
   basePath: string;
   ogType?: "website" | "article";
-  ogImage?: string;
+  ogImage?: ImageMetadata;
   jsonLd?: object[];
   noindex?: boolean;
   navVariant?: "overlay" | "solid";
@@ -25,7 +26,7 @@ const {
   description,
   basePath,
   ogType = "website",
-  ogImage = OG_IMAGE,
+  ogImage = OG_SOURCE,
   jsonLd = [],
   noindex = false,
   navVariant = "solid",
@@ -34,6 +35,13 @@ const {
 const canonical = `${SITE}${langPrefix(lang)}${basePath}`;
 const alternates = LANGS.map((l) => ({ lang: l, href: `${SITE}${langPrefix(l)}${basePath}` }));
 const xDefault = `${SITE}${basePath}`;
+
+// og:image is generated at the 1.91:1 ratio the tags claim. These dimensions
+// used to be hardcoded 1200x630 while the file served was a 4:3 2048x1536
+// photo, so every page told link-preview crawlers the wrong aspect ratio and
+// let them crop it themselves.
+const og = await getImage({ src: ogImage, width: 1200, height: 630, fit: "cover", format: "jpg" });
+const ogUrl = `${SITE}${og.src}`;
 ---
 
 <!doctype html>
@@ -56,9 +64,9 @@ const xDefault = `${SITE}${basePath}`;
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={ogImage} />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content={String(og.attributes.width ?? 1200)} />
+    <meta property="og:image:height" content={String(og.attributes.height ?? 630)} />
     <meta property="og:locale" content={OG_LOCALE[lang]} />
     {LANGS.filter((l) => l !== lang).map((l) => (
       <meta property="og:locale:alternate" content={OG_LOCALE[l]} />
@@ -66,7 +74,7 @@ const xDefault = `${SITE}${basePath}`;
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image" content={ogUrl} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
