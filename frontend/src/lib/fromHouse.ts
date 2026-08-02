@@ -1,70 +1,63 @@
 // First-hand notes about reaching each place from Ålumvej 26.
 //
-// ─── HOW TO FILL THESE IN ────────────────────────────────────────────────────
-// Edit this file directly on github.com (open it, press the pencil icon) and
-// commit to a branch — no checkout, no AWS access needed. The next deploy to
-// main publishes it.
+// The notes themselves are plain markdown files in src/content/from-house/,
+// named "<slug>.<lang>.md" — see the README in that folder.
 //
-// Write 40–80 words. What the drive is actually like, where to park when it is
-// busy, which season you go, what to combine it with, what you would tell a
-// friend. Concrete beats lyrical: "20 minutter ad Vesterhavsvej, sidste stykke
-// er grusvej" is worth more than "en skøn oplevelse".
+// They are not held in this file on purpose. This is prose written by hand in a
+// browser, and Danish is full of apostrophes and quotes; one unescaped character
+// in a TypeScript string literal breaks the build, which means a typo in a note
+// takes down the whole deploy rather than just that note. A markdown file has no
+// syntax to get wrong. The same reasoning is why it is not JSON.
 //
-// This is the one block on the site that no other page in the world can
-// reproduce, which is exactly why it is worth citing rather than the source it
-// summarises. Everything else here is assembled from other people's pages.
-//
-// Danish first. `en` and `de` are optional — a language you omit simply renders
-// nothing there, which is better than showing Danish text to a German reader.
-// Leave a slug out entirely if you have nothing real to say about it; an empty
-// block is better than filler.
-//
-// Keys are the page slug, i.e. the last path segment of the URL:
-//   https://www.aalumvej26.dk/oplevelser/lodbjerg-fyr-klatr-.../  ->  "lodbjerg-fyr-klatr-..."
-//
-// Slugs are seeded below for the evergreen places — the ones still worth
-// reading next year. Dated events are deliberately absent: a personal note on a
-// weekend that has already happened is wasted writing. Add any slug you like.
-// ─────────────────────────────────────────────────────────────────────────────
+// Nor is it in DynamoDB, where it started: there is no CLI or console access
+// here, so a field that can only be written through AWS is a field nobody can
+// write. The stored value is still read as a fallback for anything already
+// there, and the content pipeline preserves it across rewrites
+// (PRESERVED_TRANSLATION_FIELDS in stages.py).
 
-import type { Lang } from "./i18n";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { LANGS, type Lang } from "./i18n";
+
+const NOTES_DIR = join(process.cwd(), "src", "content", "from-house");
 
 export type FromHouseEntry = Partial<Record<Lang, string>>;
 
-export const FROM_HOUSE: Record<string, FromHouseEntry> = {
-  // ── Området ────────────────────────────────────────────────────────────────
-  "nationalpark-thy": {},
-  "cold-hawaii-klitmoeller": {},
-  limfjorden: {},
-  thisted: {},
-  "mors-jesperhus": {},
-  hanstholm: {},
+function loadNotes(): Record<string, FromHouseEntry> {
+  if (!existsSync(NOTES_DIR)) return {};
 
-  // ── Oplevelser (evergreen) ─────────────────────────────────────────────────
-  "lodbjerg-fyr-klatr-op-i-fyret-og-drik-kaffe-i-den-gamle-fyrm": {},
-  "thy-whisky-besoeg-danmarks-nordligste-distilleri-og-smag-pri": {},
-  "nationalparkcenter-thy-ny-saeson": {},
-  "vesterhavshytten-grillbar-med-klitudsigt-i-agger": {},
-  "restaurant-signalmasten-aabent-hele-aaret-i-agger": {},
-  "stenbjerg-landingsplads": {},
-  "vestkyststi-agger-til-bulbjerg": {},
-  "agger-tange-fuglenes-paradis": {},
-  "ny-vandresti-i-agger-agger-taabel-stien-6-km": {},
-  "vandring-paa-diget-rundt-om-agger-4-km-med-udsigt-over-hav-o": {},
-  "makrelfiskeri-fra-molerne-i-agger-bedste-bid-i-juli-og-augus": {},
-  "klitheden-blomstrer-foraarsflora-i-nationalpark-thy": {},
-  "nr-vorupoer-fisk-fra-kutteren": {},
-  "bunkermuseum-hanstholm-olsen-banden-i-thy-ny-saerudstilling": {},
-  "sea-war-museum-jutland-i-thyboroen-jyllandsslaget-og-nordsoe": {},
-  "smk-thy-nationalkunst-i-verdensklasse-ved-limfjorden": {},
-  "laer-at-surfe-cold-hawaii-surf-camp": {},
-  "delfin-og-saelsafari-med-rib-baad-fra-agger": {},
-};
+  const notes: Record<string, FromHouseEntry> = {};
+  const langs = new Set<string>(LANGS);
+
+  for (const file of readdirSync(NOTES_DIR)) {
+    if (!file.endsWith(".md") || file === "README.md") continue;
+
+    // "<slug>.<lang>.md" — the slug itself contains dots rarely but hyphens
+    // often, so split from the right rather than the left.
+    const parts = file.slice(0, -3).split(".");
+    const lang = parts.pop();
+    const slug = parts.join(".");
+
+    if (!lang || !langs.has(lang) || !slug) {
+      console.warn(
+        `[fromHouse] ignoring ${file} — expected "<slug>.<lang>.md" with lang one of ${[...langs].join(", ")}`
+      );
+      continue;
+    }
+
+    const text = readFileSync(join(NOTES_DIR, file), "utf8").trim();
+    if (!text) continue;
+    notes[slug] = { ...notes[slug], [lang as Lang]: text };
+  }
+  return notes;
+}
+
+/** Built once per build; the notes are static files read at build time. */
+export const FROM_HOUSE: Record<string, FromHouseEntry> = loadNotes();
 
 /**
- * Hand-written note for a slug, falling back to whatever the content pipeline
- * stored. The repo file wins: it is the editable-without-AWS source, and the
- * pipeline never authors this field anyway (see PRESERVED_TRANSLATION_FIELDS).
+ * Hand-written note for a slug, falling back to whatever the pipeline stored.
+ * The file wins: it is the source anyone can actually edit.
  */
 export function fromHouse(
   slug: string,
@@ -78,22 +71,22 @@ export function fromHouse(
 /**
  * Warn about notes that no longer match any page.
  *
- * Slugs derive from the Danish title, so renaming an area (the pipeline's area
- * audit can rewrite names) changes its slug and silently orphans the note
- * written for it. Without this the text just stops appearing, which is the kind
- * of failure nobody notices for months. Warn rather than throw — an orphaned
- * note must never fail the build.
+ * Slugs derive from the Danish title, and the pipeline's area audit can rewrite
+ * an area's name — which changes its slug and silently orphans the note written
+ * for it. Without this the text just stops appearing, the kind of failure nobody
+ * notices for months. It also catches a mistyped filename, which is the likeliest
+ * mistake when copying a long slug out of a URL.
+ *
+ * Warn rather than throw: a misfiled note must never fail a deploy.
  */
 export function warnOrphanedFromHouseKeys(knownSlugs: Iterable<string>): string[] {
   const known = new Set(knownSlugs);
-  const orphaned = Object.entries(FROM_HOUSE)
-    .filter(([slug, entry]) => Object.values(entry).some((v) => v?.trim()) && !known.has(slug))
-    .map(([slug]) => slug);
+  const orphaned = Object.keys(FROM_HOUSE).filter((slug) => !known.has(slug));
 
   if (orphaned.length) {
     console.warn(
-      `[fromHouse] ${orphaned.length} hand-written note(s) match no current page — ` +
-        `the slug probably changed with a title. These render nowhere:\n` +
+      `[fromHouse] ${orphaned.length} note(s) match no current page — check the ` +
+        `filename against the page's URL. These render nowhere:\n` +
         orphaned.map((s) => `  - ${s}`).join("\n")
     );
   }
