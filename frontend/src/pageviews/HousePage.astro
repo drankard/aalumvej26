@@ -13,14 +13,11 @@ import Faq from "../components/Faq.astro";
 import { langPrefix, loc, ui, type Lang } from "../lib/i18n";
 import { BOOKING, HOUSE_IMAGES, HOUSE_NAME, SITE } from "../lib/site";
 import {
-  HOUSE_ADDRESS,
-  HOUSE_BEDROOMS,
   HOUSE_FACTS,
   HOUSE_FAQ,
-  HOUSE_GEO,
   HOUSE_INTRO,
   HOUSE_SIZE_M2,
-  HOUSE_SLEEPS,
+  houseNode,
 } from "../lib/house";
 
 interface Props {
@@ -42,19 +39,11 @@ const faq = HOUSE_FAQ[lang];
 
 const jsonLd: object[] = [
   {
-    "@context": "https://schema.org",
-    "@type": "VacationRental",
-    "@id": `${SITE}/#house`,
-    name: HOUSE_NAME,
-    description: HOUSE_INTRO[lang],
-    url: canonical,
-    image: HOUSE_IMAGES.map((i) => `${SITE}${i.src}`),
-    address: HOUSE_ADDRESS,
-    geo: { "@type": "GeoCoordinates", ...HOUSE_GEO },
-    numberOfRooms: HOUSE_BEDROOMS,
-    occupancy: { "@type": "QuantitativeValue", maxValue: HOUSE_SLEEPS },
+    // The shared definition, plus the fields only this page carries. The home
+    // page emits the same node; anything they both state lives in houseNode so
+    // the two cannot drift apart.
+    ...houseNode(lang),
     floorSize: { "@type": "QuantitativeValue", value: HOUSE_SIZE_M2, unitCode: "MTK" },
-    petsAllowed: true,
     amenityFeature: L.features.map((f: string) => ({
       "@type": "LocationFeatureSpecification",
       // Locale feature strings are emoji-prefixed for display; the emoji is
@@ -62,12 +51,7 @@ const jsonLd: object[] = [
       name: f.replace(/^\p{Extended_Pictographic}️?\s*/u, ""),
       value: true,
     })),
-    containedInPlace: {
-      "@type": "Place",
-      name: "Nationalpark Thy",
-      url: "https://eng.nationalparkthy.dk",
-    },
-    isPartOf: { "@type": "WebSite", name: HOUSE_NAME, url: `${SITE}/` },
+    isPartOf: { "@type": "WebSite", name: HOUSE_NAME, url: `${SITE}${p}/` },
   },
   {
     "@context": "https://schema.org",

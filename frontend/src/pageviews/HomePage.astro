@@ -7,7 +7,7 @@ import AreaCard from "../components/AreaCard.astro";
 import { getContent } from "../lib/content";
 import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { HOUSE_NAME, SITE } from "../lib/site";
-import { HOUSE_ADDRESS, HOUSE_BEDROOMS, HOUSE_GEO, HOUSE_SLEEPS } from "../lib/house";
+import { houseId, houseNode } from "../lib/house";
 
 interface Props {
   lang: Lang;
@@ -34,34 +34,16 @@ const descriptions: Record<Lang, string> = {
 // (it claimed 3 bedrooms and no pets; the house has 2 and allows one dog).
 // Both now derive from lib/house.ts so markup and visible text can't drift.
 const jsonLd = [
-  {
-    "@context": "https://schema.org",
-    "@type": "LodgingBusiness",
-    "@id": `${SITE}/#house`,
-    name: HOUSE_NAME,
-    description: descriptions[lang],
-    url: `${SITE}${p}/huset/`,
-    image: `${SITE}/images/house/01-exterior.jpg`,
-    address: HOUSE_ADDRESS,
-    geo: { "@type": "GeoCoordinates", ...HOUSE_GEO },
-    numberOfRooms: HOUSE_BEDROOMS,
-    occupancy: { "@type": "QuantitativeValue", maxValue: HOUSE_SLEEPS },
-    petsAllowed: true,
-    containedInPlace: {
-      "@type": "Place",
-      name: "Nationalpark Thy",
-      url: "https://eng.nationalparkthy.dk",
-    },
-  },
+  houseNode(lang),
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "@id": `${SITE}/#website`,
+    "@id": `${SITE}${p}/#website`,
     name: HOUSE_NAME,
-    url: `${SITE}/`,
+    url: `${SITE}${p}/`,
     inLanguage: lang,
     description: descriptions[lang],
-    publisher: { "@id": `${SITE}/#house` },
+    publisher: { "@id": houseId(lang) },
   },
 ];
 ---

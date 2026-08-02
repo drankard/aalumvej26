@@ -7,7 +7,8 @@
 // data on /huset/ and the home page are both generated from these values, and a
 // mismatch between markup and visible copy is worse than omitting the claim.
 
-import type { Lang } from "./i18n";
+import { langPrefix, type Lang } from "./i18n";
+import { HOUSE_IMAGES, HOUSE_NAME, SITE } from "./site";
 import type { Fact, FaqItem } from "./types";
 
 export const HOUSE_GEO = { latitude: 56.7925, longitude: 8.2647 } as const;
@@ -147,6 +148,49 @@ export const HOUSE_FAQ: Record<Lang, FaqItem[]> = {
     },
   ],
 };
+
+/**
+ * schema.org node id for the house, scoped per locale.
+ *
+ * One `@id` must denote exactly one entity. The home page and /huset/ both
+ * describe the house, and each locale states its own `url`, so a single
+ * site-wide id declared one entity holding three canonical URLs at once. That
+ * is the same defect that once shipped two different `name` values under one id
+ * (see lib/site.ts) — recurring in `url` and `description` instead. Scoping the
+ * id per locale keeps every id backed by one consistent set of claims.
+ */
+export const houseId = (lang: Lang): string => `${SITE}${langPrefix(lang)}/huset/#house`;
+
+/**
+ * The house as structured data — the single definition both pages emit.
+ *
+ * /huset/ extends this with the fields only it carries (floor size, amenities);
+ * the home page emits it unchanged. Describing the entity more fully on its own
+ * page is fine, but the fields they share must agree, so they are stated once
+ * here rather than written out twice.
+ *
+ * `description` is HOUSE_INTRO, not either page's meta description: a meta
+ * description describes the page, and this node describes the house.
+ */
+export const houseNode = (lang: Lang) => ({
+  "@context": "https://schema.org",
+  "@type": "VacationRental",
+  "@id": houseId(lang),
+  name: HOUSE_NAME,
+  description: HOUSE_INTRO[lang],
+  url: `${SITE}${langPrefix(lang)}/huset/`,
+  image: HOUSE_IMAGES.map((i) => `${SITE}${i.src}`),
+  address: HOUSE_ADDRESS,
+  geo: { "@type": "GeoCoordinates", ...HOUSE_GEO },
+  numberOfRooms: HOUSE_BEDROOMS,
+  occupancy: { "@type": "QuantitativeValue", maxValue: HOUSE_SLEEPS },
+  petsAllowed: true,
+  containedInPlace: {
+    "@type": "Place",
+    name: "Nationalpark Thy",
+    url: "https://eng.nationalparkthy.dk",
+  },
+});
 
 export const HOUSE_INTRO: Record<Lang, string> = {
   da: "Et ældre, stråtækt feriehus på 60 m² i Agger — 200 meter fra Vesterhavet og med Nationalpark Thy som nabo. Nænsomt restaureret i gammel stil med moderne komfort: brændeovn, varmepumpe, WiFi og en østvendt, lukket gårdhave på en naturgrund på 1.000 m². Der er plads til fire.",
