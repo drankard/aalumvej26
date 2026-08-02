@@ -1,5 +1,15 @@
 export const SITE = "https://www.aalumvej26.dk";
 
+// The house's name as it is written for humans and for structured data.
+//
+// Deliberately distinct from the domain: the domain is an ASCII identifier and
+// cannot carry the Å, but the address genuinely is "Ålumvej 26" and that is what
+// maps, tourism sites and directories match on. The site previously used both
+// spellings — including two different `name` values on schema.org nodes sharing
+// one @id, which declares a single entity under two names. One constant so that
+// cannot recur.
+export const HOUSE_NAME = "Ålumvej 26";
+
 export const BOOKING =
   "https://www.aggerferiehuse.dk/dk/agger/lille-feriehus-med-sjael-og-charme";
 
@@ -21,7 +31,7 @@ export const TAG_COLORS: Record<string, string> = {
 };
 
 export const HOUSE_IMAGES = [
-  { src: "/images/house/01-exterior.jpg", alt: "Stråtækt feriehus set udefra, Aalumvej 26 i Agger" },
+  { src: "/images/house/01-exterior.jpg", alt: "Stråtækt feriehus set udefra, Ålumvej 26 i Agger" },
   { src: "/images/house/07-livingroom1.jpg", alt: "Hyggelig stue med brændeovn i feriehuset" },
   { src: "/images/house/08-livingroom2.jpg", alt: "Lys stue med udsigt til naturen" },
   { src: "/images/house/03-kitchen1.jpg", alt: "Fuldt udstyret køkken med spiseplads" },

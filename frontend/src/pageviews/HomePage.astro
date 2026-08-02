@@ -6,7 +6,7 @@ import ExperienceCard from "../components/ExperienceCard.astro";
 import AreaCard from "../components/AreaCard.astro";
 import { getContent } from "../lib/content";
 import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
-import { SITE } from "../lib/site";
+import { HOUSE_NAME, SITE } from "../lib/site";
 import { HOUSE_ADDRESS, HOUSE_BEDROOMS, HOUSE_GEO, HOUSE_SLEEPS } from "../lib/house";
 
 interface Props {
@@ -20,9 +20,9 @@ const { posts, areas, categories, postSlugs, areaSlugs } = await getContent();
 const preview = posts.slice(0, 6);
 
 const titles: Record<Lang, string> = {
-  da: "Aalumvej 26 — Feriehus i Agger, Nationalpark Thy",
-  en: "Aalumvej 26 — Holiday cottage in Agger, Thy National Park",
-  de: "Aalumvej 26 — Ferienhaus in Agger, Nationalpark Thy",
+  da: `${HOUSE_NAME} — Feriehus i Agger, Nationalpark Thy`,
+  en: `${HOUSE_NAME} — Holiday cottage in Agger, Thy National Park`,
+  de: `${HOUSE_NAME} — Ferienhaus in Agger, Nationalpark Thy`,
 };
 const descriptions: Record<Lang, string> = {
   da: "Charmerende stråtækt feriehus kun 200m fra Vesterhavet i Agger, Nationalpark Thy. Oplev Vestjyllands vildeste kyst — surf, natur, østers og meget mere.",
@@ -38,7 +38,7 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "LodgingBusiness",
     "@id": `${SITE}/#house`,
-    name: "Aalumvej 26",
+    name: HOUSE_NAME,
     description: descriptions[lang],
     url: `${SITE}${p}/huset/`,
     image: `${SITE}/images/house/01-exterior.jpg`,
@@ -57,7 +57,7 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "WebSite",
     "@id": `${SITE}/#website`,
-    name: "Aalumvej 26",
+    name: HOUSE_NAME,
     url: `${SITE}/`,
     inLanguage: lang,
     description: descriptions[lang],

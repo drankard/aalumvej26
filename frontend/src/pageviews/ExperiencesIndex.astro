@@ -8,7 +8,7 @@ import { getContent } from "../lib/content";
 import { getHub } from "../lib/hubs";
 import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
-import { SITE } from "../lib/site";
+import { HOUSE_NAME, SITE } from "../lib/site";
 import type { CategoryTranslation, Post } from "../lib/types";
 
 interface Props {
@@ -32,7 +32,7 @@ const shown: Post[] = category ? posts.filter((po) => po.category === category.i
 const basePath = category ? `/oplevelser/kategori/${category.id}/` : "/oplevelser/";
 const title = category
   ? `${category.icon} ${catLabel} — ${L.nav.experiences} · Nationalpark Thy`
-  : `${U.allExperiences} — Aalumvej 26, Agger · Nationalpark Thy`;
+  : `${U.allExperiences} — ${HOUSE_NAME}, Agger · Nationalpark Thy`;
 // Hub guide copy — the reason these URLs can rank for the broad, high-volume
 // queries that no single dated experience page can answer.
 const hub = getHub(categoryId, lang);

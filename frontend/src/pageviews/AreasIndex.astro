@@ -5,7 +5,7 @@ import AreaCard from "../components/AreaCard.astro";
 import HouseCrossSell from "../components/HouseCrossSell.astro";
 import { getContent } from "../lib/content";
 import { langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
-import { SITE } from "../lib/site";
+import { HOUSE_NAME, SITE } from "../lib/site";
 import type { AreaTranslation } from "../lib/types";
 
 interface Props {
@@ -19,7 +19,7 @@ const p = langPrefix(lang);
 const { areas, areaSlugs } = await getContent();
 
 const basePath = "/omraadet/";
-const title = `${U.allAreas} — Aalumvej 26, Agger · Nationalpark Thy`;
+const title = `${U.allAreas} — ${HOUSE_NAME}, Agger · Nationalpark Thy`;
 const description = `${U.allAreas}: ${U.intro}`;
 
 const jsonLd = [

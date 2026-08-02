@@ -13,7 +13,7 @@ import { absoluteImage, pageImage } from "../lib/images";
 import { getContent } from "../lib/content";
 import { LANGS, langPrefix, loc, pickTr, ui, type Lang } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
-import { SITE } from "../lib/site";
+import { HOUSE_NAME, SITE } from "../lib/site";
 import type { Area, AreaTranslation } from "../lib/types";
 
 interface Props {
@@ -63,7 +63,7 @@ const jsonLd: object[] = [
     inLanguage: lang,
     datePublished: area.created_at,
     dateModified: area.updated_at,
-    isPartOf: { "@type": "WebSite", name: "Aalumvej 26", url: `${SITE}/` },
+    isPartOf: { "@type": "WebSite", name: HOUSE_NAME, url: `${SITE}/` },
   },
   {
     "@context": "https://schema.org",
