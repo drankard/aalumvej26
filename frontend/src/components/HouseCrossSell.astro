@@ -1,6 +1,7 @@
 ---
+import { Picture } from "astro:assets";
 import { langPrefix, loc, ui, type Lang } from "../lib/i18n";
-import { BOOKING } from "../lib/site";
+import { BOOKING, HOUSE_IMAGES } from "../lib/site";
 
 interface Props {
   lang: Lang;
@@ -11,7 +12,15 @@ const L = loc(lang);
 ---
 
 <aside class="cross-sell">
-  <img src="/images/house/01-exterior.jpg" alt={L.nav.brand} loading="lazy" />
+  <Picture
+    src={HOUSE_IMAGES[0].img}
+    alt={L.nav.brand}
+    formats={["webp"]}
+    width={400}
+    widths={[200, 400]}
+    sizes="(max-width: 640px) 100vw, 200px"
+    loading="lazy"
+  />
   <div>
     <h2>{ui(lang).nearbyHeading}</h2>
     <p>{L.house.description}</p>
@@ -46,7 +55,7 @@ const L = loc(lang);
       grid-template-columns: 1fr;
     }
   }
-  img {
+  :global(picture img) {
     width: 100%;
     aspect-ratio: 4 / 3;
     object-fit: cover;

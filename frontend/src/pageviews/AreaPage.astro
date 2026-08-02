@@ -1,4 +1,5 @@
 ---
+import { Picture } from "astro:assets";
 import Base from "../layouts/Base.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import AreaCard from "../components/AreaCard.astro";
@@ -48,7 +49,7 @@ const jsonLd: object[] = [
     name: tr.name,
     description: tr.desc || "",
     url: canonical,
-    ...(img ? { image: absoluteImage(img.src) } : {}),
+    ...(img ? { image: absoluteImage(img.img.src) } : {}),
     containedInPlace: {
       "@type": "Place",
       name: "Nationalpark Thy",
@@ -95,7 +96,7 @@ if (faq.length > 0) {
   description={description}
   basePath={basePath}
   ogType="article"
-  ogImage={img ? absoluteImage(img.src) : undefined}
+  ogImage={img?.img}
   jsonLd={jsonLd}
 >
   <main class="page">
@@ -109,7 +110,16 @@ if (faq.length > 0) {
       </div>
       <h1>{tr.name}</h1>
       {img && (
-        <img class="hero" src={img.src} alt={img.alt} width="820" height="460" loading="eager" />
+        <Picture
+          class="hero"
+          src={img.img}
+          alt={img.alt}
+          formats={["webp"]}
+          width={1230}
+          widths={[420, 820, 1230]}
+          sizes="(max-width: 860px) 100vw, 820px"
+          loading="eager"
+        />
       )}
       <p class="lead">{tr.desc}</p>
       <FactsTable lang={lang} facts={facts} />
@@ -172,13 +182,18 @@ if (faq.length > 0) {
     line-height: 1.15;
     margin-bottom: 14px;
   }
-  .hero {
+  /* <Picture> wraps the hero in a <picture>, so the wrapper takes the flow
+     box and the <img> inside it is what gets shaped. */
+  :global(picture:has(> .hero)) {
+    display: block;
+    margin-bottom: 20px;
+  }
+  :global(.hero) {
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 9;
     object-fit: cover;
     border-radius: 6px;
-    margin-bottom: 20px;
   }
   .lead {
     font-size: 19px;

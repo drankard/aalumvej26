@@ -6,6 +6,7 @@
 // no dedicated URL to rank. This page is the primary source for everything
 // about the property, so it carries the full VacationRental markup while the
 // home page keeps a summary LodgingBusiness reference pointing here.
+import { Picture } from "astro:assets";
 import Base from "../layouts/Base.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import FactsTable from "../components/FactsTable.astro";
@@ -13,14 +14,11 @@ import Faq from "../components/Faq.astro";
 import { langPrefix, loc, ui, type Lang } from "../lib/i18n";
 import { BOOKING, HOUSE_IMAGES, HOUSE_NAME, SITE } from "../lib/site";
 import {
-  HOUSE_ADDRESS,
-  HOUSE_BEDROOMS,
   HOUSE_FACTS,
   HOUSE_FAQ,
-  HOUSE_GEO,
   HOUSE_INTRO,
   HOUSE_SIZE_M2,
-  HOUSE_SLEEPS,
+  houseNode,
 } from "../lib/house";
 
 interface Props {
@@ -42,19 +40,11 @@ const faq = HOUSE_FAQ[lang];
 
 const jsonLd: object[] = [
   {
-    "@context": "https://schema.org",
-    "@type": "VacationRental",
-    "@id": `${SITE}/#house`,
-    name: HOUSE_NAME,
-    description: HOUSE_INTRO[lang],
-    url: canonical,
-    image: HOUSE_IMAGES.map((i) => `${SITE}${i.src}`),
-    address: HOUSE_ADDRESS,
-    geo: { "@type": "GeoCoordinates", ...HOUSE_GEO },
-    numberOfRooms: HOUSE_BEDROOMS,
-    occupancy: { "@type": "QuantitativeValue", maxValue: HOUSE_SLEEPS },
+    // The shared definition, plus the fields only this page carries. The home
+    // page emits the same node; anything they both state lives in houseNode so
+    // the two cannot drift apart.
+    ...(await houseNode(lang)),
     floorSize: { "@type": "QuantitativeValue", value: HOUSE_SIZE_M2, unitCode: "MTK" },
-    petsAllowed: true,
     amenityFeature: L.features.map((f: string) => ({
       "@type": "LocationFeatureSpecification",
       // Locale feature strings are emoji-prefixed for display; the emoji is
@@ -62,12 +52,7 @@ const jsonLd: object[] = [
       name: f.replace(/^\p{Extended_Pictographic}️?\s*/u, ""),
       value: true,
     })),
-    containedInPlace: {
-      "@type": "Place",
-      name: "Nationalpark Thy",
-      url: "https://eng.nationalparkthy.dk",
-    },
-    isPartOf: { "@type": "WebSite", name: HOUSE_NAME, url: `${SITE}/` },
+    isPartOf: { "@type": "WebSite", name: HOUSE_NAME, url: `${SITE}${p}/` },
   },
   {
     "@context": "https://schema.org",
@@ -95,7 +80,7 @@ const jsonLd: object[] = [
   description={description}
   basePath={basePath}
   ogType="article"
-  ogImage={`${SITE}${HOUSE_IMAGES[0].src}`}
+  ogImage={HOUSE_IMAGES[0].img}
   jsonLd={jsonLd}
 >
   <main class="page">
@@ -107,7 +92,15 @@ const jsonLd: object[] = [
 
       <div class="gallery">
         {HOUSE_IMAGES.map((img, i) => (
-          <img src={img.src} alt={img.alt} loading={i === 0 ? "eager" : "lazy"} width="800" height="600" />
+          <Picture
+            src={img.img}
+            alt={img.alt}
+            formats={["webp"]}
+            width={480}
+            widths={[240, 480]}
+            sizes="(max-width: 640px) 100vw, 240px"
+            loading={i === 0 ? "eager" : "lazy"}
+          />
         ))}
       </div>
 
@@ -159,7 +152,7 @@ const jsonLd: object[] = [
     gap: 10px;
     margin-bottom: 32px;
   }
-  .gallery img {
+  .gallery :global(picture img) {
     width: 100%;
     height: 200px;
     object-fit: cover;

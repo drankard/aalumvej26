@@ -1,4 +1,5 @@
 import { defineConfig } from "astro/config";
+import pruneUnreferencedAssets from "./integrations/prune-unreferenced-assets.mjs";
 
 // Fully static output. The build fetches content from the backend RPC API
 // (VITE_API_URL) and renders every page — da at the root, /en/ and /de/
@@ -9,4 +10,5 @@ export default defineConfig({
   build: {
     format: "directory",
   },
+  integrations: [pruneUnreferencedAssets()],
 });
