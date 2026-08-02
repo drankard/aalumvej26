@@ -1,24 +1,26 @@
-// Per-page photography.
+// Per-page photography — CURRENTLY UNUSED, and that is the intended state.
 //
-// ─── HOW TO ADD AN IMAGE ─────────────────────────────────────────────────────
-// 1. Upload the file on github.com to frontend/public/images/steder/ — use
-//    "Add file > Upload files" in that folder. Name it after the slug.
-// 2. Add an entry below with a real alt text describing what is in the photo.
-// 3. Commit. The next deploy to main publishes it.
+// PAGE_IMAGES is empty, so no page emits a hero image or a schema.org `image`.
+// That is correct rather than a gap: asserting an image in structured data is a
+// claim that the picture depicts that subject, and we hold no photographs of
+// these places. Every experience page used to declare the cottage's exterior as
+// its image, which was simply false; that claim was removed, not replaced.
 //
-// Alt text is not decoration: it is the only description a screen reader or an
-// image crawler gets. "Lodbjerg Fyr set fra klitheden en klar eftermiddag" is
-// useful; "billede" and "Lodbjerg Fyr" are not.
+// Images are NOT discovered by the content pipeline, deliberately. The pipeline
+// crawls tourism boards, museums and restaurants — their photographs are theirs.
+// Copying or hotlinking them, and then declaring one as this site's `image`,
+// would automate a copyright infringement. An og:image tag lets other sites show
+// a link preview; it is not a licence to republish.
 //
-// ─── WHY ENTRIES ARE NOT AUTO-DISCOVERED ─────────────────────────────────────
-// Only add a photo that genuinely shows the place. Where an entry exists it is
-// published as schema.org `image` — a factual claim that this picture depicts
-// this subject. Every experience page previously advertised the house exterior
-// as its image, which was simply untrue, and that markup was removed rather
-// than left lying. A page with no entry gets no `image` in its structured data
-// at all; the house photo is still used for the social-sharing preview, which
-// is presentation rather than an assertion about the subject.
-// ─────────────────────────────────────────────────────────────────────────────
+// The mechanism below is kept because it is correct and costs nothing while
+// empty. If images are ever wanted, the legitimate automatable source is
+// Wikimedia Commons — CC/public-domain, queryable by name and coordinates,
+// republishable with visible attribution. Coverage would reach the evergreen
+// landmarks and miss events and small businesses, which is the right split
+// anyway.
+//
+// To register one by hand: upload to public/images/steder/ and add an entry
+// below with alt text describing what is actually in the photo.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
