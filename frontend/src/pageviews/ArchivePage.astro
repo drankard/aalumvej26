@@ -1,4 +1,5 @@
 ---
+import { HOUSE_NAME } from "../lib/site";
 import Base from "../layouts/Base.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import ExperienceCard from "../components/ExperienceCard.astro";
@@ -18,7 +19,7 @@ const { archivedPosts } = await getContent();
 const archiveSlugs = buildSlugMap(archivedPosts);
 
 const basePath = "/oplevelser/arkiv/";
-const title = `${L.experiences.archiveLabel} — Aalumvej 26 · Nationalpark Thy`;
+const title = `${L.experiences.archiveLabel} — ${HOUSE_NAME} · Nationalpark Thy`;
 ---
 
 {/* Kept for readers and internal linking, but out of the index: the page is a
