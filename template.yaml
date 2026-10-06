@@ -197,7 +197,7 @@ Resources:
     Properties:
       Name: !Sub aalumvej26-oplevelser-canary-${Stage}
       ScheduleExpression: 'cron(0 3 ? * SUN *)'
-      State: ENABLED
+      State: DISABLED   # Saga writes the guide now (homelab decision 60); the Bedrock pipeline no longer runs
       Targets:
         - Arn: !GetAtt PipelineCanaryFunction.Arn
           Id: OplevelsCanaryTarget
@@ -216,7 +216,7 @@ Resources:
     Properties:
       Name: !Sub aalumvej26-omraadet-canary-${Stage}
       ScheduleExpression: 'cron(0 9 ? * 2#1 *)'
-      State: ENABLED
+      State: DISABLED   # Saga writes the guide now (homelab decision 60); the Bedrock pipeline no longer runs
       Targets:
         - Arn: !GetAtt PipelineCanaryFunction.Arn
           Id: OmraadetCanaryTarget
@@ -420,7 +420,7 @@ Resources:
     Properties:
       Name: !Sub aalumvej26-oplevelser-schedule-${Stage}
       ScheduleExpression: 'cron(0 0 ? * SUN *)'
-      State: ENABLED
+      State: DISABLED   # Saga writes the guide now (homelab decision 60); the Bedrock pipeline no longer runs
       Targets:
         - Arn: !GetAtt ContentPipelineFunction.Arn
           Id: OplevelsTarget
@@ -441,7 +441,7 @@ Resources:
     Properties:
       Name: !Sub aalumvej26-omraadet-schedule-${Stage}
       ScheduleExpression: 'cron(0 6 ? * 2#1 *)'
-      State: ENABLED
+      State: DISABLED   # Saga writes the guide now (homelab decision 60); the Bedrock pipeline no longer runs
       Targets:
         - Arn: !GetAtt ContentPipelineFunction.Arn
           Id: OmraadetTarget
