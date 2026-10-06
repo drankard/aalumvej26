@@ -14,11 +14,18 @@ from repositories.base import DynamoDBAdapter
 from repositories.greeting import GreetingRepository
 from repositories.content import PostRepository, AreaRepository, CategoryRepository
 
+# The public API (POST /rpc, no authentication) is read-only: the site's build needs only these. Content is
+# written by the site-publish job straight to the table, with its own write-only role; the write actions stay
+# in the code (tests, repositories) but are not reachable from the internet.
+PUBLIC_ACTIONS = {"list_content", "list_archived_posts", "list_posts", "list_areas", "list_categories"}
+
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     try:
         body = json.loads(event.get("body", "{}"))
         request = RpcRequest(**body)
+        if request.action not in PUBLIC_ACTIONS:
+            raise ValueError(f"Unknown action: {request.action} (the public API is read-only)")
 
         table_name = os.environ["TABLE_NAME"]
         dynamodb = boto3.resource("dynamodb")
